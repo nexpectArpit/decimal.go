@@ -68,3 +68,26 @@ Every entry follows this format:
   - Using complex regex replacements on large inputs.
 - **Decision:** Tokenizing string parser splitting digits into 7-digit limb chunks directly in base $10^7$ with `minE`/`maxE` boundary checking and `convertBase` for non-decimal alphabets.
 - **Rationale:** Preserves 100% exact limb position alignment and exponent calculations while outperforming regex parsing.
+
+---
+
+### Decision 5: IEEE-754 Rounding Engine & Boundary Digit Checking (`finalise`)
+
+- **Context:** Truncating intermediate limb calculation results to configured precision across 9 rounding modes.
+- **Evidence:** `decimal.js` lines 2946-3110 (`finalise`).
+- **Alternatives Considered:**
+  - standard Go `math.Round()` floating-point rounding (loses arbitrary-precision boundary digits).
+  - Truncation without tie-breaking logic.
+- **Decision:** Multi-word limb digit inspection (`finalise`) evaluating 1 of 9 rounding modes (`RoundUp`, `RoundDown`, `RoundCeil`, `RoundFloor`, `RoundHalfUp`, `RoundHalfDown`, `RoundHalfEven`, `RoundHalfCeil`, `RoundHalfFloor`), performing carry propagation when rounding up, and checking `minE`/`maxE` boundary limits.
+- **Rationale:** Guarantees exact tie-breaking alignment with `decimal.js` test suite expectations.
+
+---
+
+### Decision 6: Base $10^7$ Knuth Long Division & Normalization (`divide`)
+
+- **Context:** Arbitrary-precision division with quotient estimation and remainder tracking.
+- **Evidence:** `decimal.js` lines 2728-2939 (`divide`).
+- **Alternatives Considered:**
+  - `big.Int.QuoRem()` division (requires base-2 limb conversions).
+- **Decision:** Normalization factor ($y_0 \ge \text{Base}/2$) and 1-digit trial quotient estimation in base $10^7$ (`divide`).
+- **Rationale:** Maintains 100% limb accuracy, zero remainder loss, and exact guard digit computation for transcendentals.
