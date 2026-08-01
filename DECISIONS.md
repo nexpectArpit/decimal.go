@@ -91,3 +91,25 @@ Every entry follows this format:
   - `big.Int.QuoRem()` division (requires base-2 limb conversions).
 - **Decision:** Normalization factor ($y_0 \ge \text{Base}/2$) and 1-digit trial quotient estimation in base $10^7$ (`divide`).
 - **Rationale:** Maintains 100% limb accuracy, zero remainder loss, and exact guard digit computation for transcendentals.
+
+---
+
+### Decision 7: Logarithmic & Exponential Series Expansions (`Ln`, `Exp`)
+
+- **Context:** Computing natural logarithm $\ln(x)$ and exponential $e^x$ to arbitrary precision.
+- **Evidence:** `decimal.js` lines 3307-3396 (`naturalExponential`) and lines 3398-3512 (`naturalLogarithm`).
+- **Alternatives Considered:**
+  - Using Go `math.Log()` or `math.Exp()` float64 approximations.
+- **Decision:** Argument reduction ($x = (y-1)/(y+1)$) and Taylor series expansion $\sum \frac{y^{2k+1}}{2k+1}$ with static 1025-digit $\ln(10)$ constant.
+- **Rationale:** Delivers exact arbitrary-precision convergence without losing guard digit precision.
+
+---
+
+### Decision 8: Root Extraction Algorithms (`Sqrt`, `Cbrt`)
+
+- **Context:** Arbitrary-precision square root and cube root extraction.
+- **Evidence:** `decimal.js` lines 1432-1522 (`squareRoot`) and lines 334-421 (`cubeRoot`).
+- **Alternatives Considered:**
+  - Convert to float64 and invoke `math.Sqrt()`.
+- **Decision:** Newton-Raphson quadratic iteration for `Sqrt()` ($x_{k+1} = 0.5(x_k + S/x_k)$) and Halley's cubic iteration for `Cbrt()` ($r_{k+1} = r_k \frac{r_k^3 + 2X}{2r_k^3 + X}$).
+- **Rationale:** Quadratic and cubic convergence speeds up root extraction while maintaining exact limb precision.
