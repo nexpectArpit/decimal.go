@@ -56,3 +56,15 @@ Every entry follows this format:
   - Pure method receivers without configuration context.
 - **Decision:** Dual API architecture: immutable value receiver methods (`x.Add(y)`) using package default context, alongside explicit `Context` struct methods (`ctx.Add(x, y)`).
 - **Rationale:** Provides thread-safe, isolated precision settings for multi-threaded Go applications while maintaining clean method syntax for standard operations.
+
+---
+
+### Decision 4: Base $10^7$ Tokenizing String Parser & Base Conversion
+
+- **Context:** Parsing numeric strings, scientific notation (`1.2e-5`), hex (`0x`), binary (`0b`), and octal (`0o`).
+- **Evidence:** `decimal.js` lines 3523-3601 (`parseDecimal`) and lines 3607-3679 (`parseOther`).
+- **Alternatives Considered:**
+  - Delegating to Go stdlib `big.Float.Parse()` (loses exact exponent and limb structure alignment).
+  - Using complex regex replacements on large inputs.
+- **Decision:** Tokenizing string parser splitting digits into 7-digit limb chunks directly in base $10^7$ with `minE`/`maxE` boundary checking and `convertBase` for non-decimal alphabets.
+- **Rationale:** Preserves 100% exact limb position alignment and exponent calculations while outperforming regex parsing.
