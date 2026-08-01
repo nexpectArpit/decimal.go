@@ -51,13 +51,12 @@ func digitsToString(d []int32) string {
 		}
 
 		w = d[indexOfLastWord]
-		ws := strconv.Itoa(int(w))
-		k := LogBase - len(ws)
+		k := LogBase - len(strconv.Itoa(int(w)))
 		if k > 0 {
 			sb.WriteString(getZeroString(k))
 		}
 
-		// Remove trailing zeros of last word
+		// Remove trailing zeros of last word.
 		for w%10 == 0 && w != 0 {
 			w /= 10
 		}
