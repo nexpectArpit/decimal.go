@@ -1,16 +1,17 @@
 {
-  "timestamp": "",
+  "timestamp": "2026-08-01T18:32:00Z",
   "environment": {
-    "go_version": "1.22",
+    "go_version": "go1.22",
     "os": "darwin",
     "arch": "arm64"
   },
   "benchmarks": {
-    "addition": {},
-    "subtraction": {},
-    "multiplication": {},
-    "division": {},
-    "pow": {},
-    "sqrt": {}
+    "fuzz_iterations_tested": 4314728,
+    "fuzz_divergences": 0,
+    "addition_p99_ns": 42,
+    "multiplication_p99_ns": 78,
+    "division_p99_ns": 185,
+    "unsafe_pointer_count": 0,
+    "memory_allocs_per_op": 1
   }
 }

@@ -113,3 +113,25 @@ Every entry follows this format:
   - Convert to float64 and invoke `math.Sqrt()`.
 - **Decision:** Newton-Raphson quadratic iteration for `Sqrt()` ($x_{k+1} = 0.5(x_k + S/x_k)$) and Halley's cubic iteration for `Cbrt()` ($r_{k+1} = r_k \frac{r_k^3 + 2X}{2r_k^3 + X}$).
 - **Rationale:** Quadratic and cubic convergence speeds up root extraction while maintaining exact limb precision.
+
+---
+
+### Decision 9: String Formatting & Exponent Range Switching (`finiteToString`)
+
+- **Context:** Converting Decimal objects to fixed-point or scientific notation strings.
+- **Evidence:** `decimal.js` lines 3113-3143 (`finiteToString`).
+- **Alternatives Considered:**
+  - Go `fmt.Sprintf("%f")` string formatting.
+- **Decision:** Custom string formatter `finiteToString` evaluating `toExpNeg` and `toExpPos` bounds to dynamically toggle between normal and exponential notation while handling digit zero-padding.
+- **Rationale:** Guarantees 100% exact character-for-character formatting parity with `decimal.js`.
+
+---
+
+### Decision 10: Zero-Unsafe Memory Safety Policy
+
+- **Context:** Ensuring 100% memory safety and standard Go compiler compatibility across all packages.
+- **Evidence:** Hackathon Code Quality judging criteria (20% score weight).
+- **Alternatives Considered:**
+  - Using `unsafe.Pointer` to slice raw byte buffers.
+- **Decision:** Strict policy of 0 `unsafe.Pointer`, 0 `uintptr`, and 0 `any` interface escape hatches.
+- **Rationale:** Eliminates memory corruption risks, memory leaks, and garbage collector safety violations.
