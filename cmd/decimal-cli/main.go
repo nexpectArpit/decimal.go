@@ -268,6 +268,18 @@ func handleOp(ctx *decimal.Context, req Request) Response {
 	case "neg":
 		return makeResp(ctx, a.Neg())
 
+	case "trunc", "truncated":
+		return makeResp(ctx, ctx.Trunc(a))
+
+	case "floor":
+		return makeResp(ctx, ctx.Floor(a))
+
+	case "ceil":
+		return makeResp(ctx, ctx.Ceil(a))
+
+	case "round":
+		return makeResp(ctx, ctx.Round(a))
+
 	default:
 		return makeResp(ctx, a)
 	}

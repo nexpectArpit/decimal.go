@@ -135,7 +135,19 @@ Decimal.prototype.neg = Decimal.prototype.negated = function () {
 };
 
 Decimal.prototype.trunc = Decimal.prototype.truncated = function () {
-  return wrapRes(callGo('sub', [this.valueOf(), '0']));
+  return wrapRes(callGo('trunc', [this.valueOf()]));
+};
+
+Decimal.prototype.floor = function () {
+  return wrapRes(callGo('floor', [this.valueOf()]));
+};
+
+Decimal.prototype.ceil = function () {
+  return wrapRes(callGo('ceil', [this.valueOf()]));
+};
+
+Decimal.prototype.round = function () {
+  return wrapRes(callGo('round', [this.valueOf()]));
 };
 
 Decimal.prototype.cmp = Decimal.prototype.comparedTo = function (y) {

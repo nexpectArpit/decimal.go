@@ -187,3 +187,55 @@ checkBounds:
 
 	return x
 }
+
+// Trunc truncates Decimal x to an integer value towards zero.
+func (c *Context) Trunc(x *Decimal) *Decimal {
+	if x == nil || !x.IsFinite() {
+		return x
+	}
+	return c.finalise(new(Decimal).Set(x), int(x.e)+1, RoundDown, false)
+}
+
+// Trunc truncates Decimal x using default context.
+func (x *Decimal) Trunc() *Decimal {
+	return globalContext.Trunc(x)
+}
+
+// Floor rounds Decimal x towards -Infinity to an integer.
+func (c *Context) Floor(x *Decimal) *Decimal {
+	if x == nil || !x.IsFinite() {
+		return x
+	}
+	return c.finalise(new(Decimal).Set(x), int(x.e)+1, RoundFloor, false)
+}
+
+// Floor rounds Decimal x using default context.
+func (x *Decimal) Floor() *Decimal {
+	return globalContext.Floor(x)
+}
+
+// Ceil rounds Decimal x towards +Infinity to an integer.
+func (c *Context) Ceil(x *Decimal) *Decimal {
+	if x == nil || !x.IsFinite() {
+		return x
+	}
+	return c.finalise(new(Decimal).Set(x), int(x.e)+1, RoundCeil, false)
+}
+
+// Ceil rounds Decimal x using default context.
+func (x *Decimal) Ceil() *Decimal {
+	return globalContext.Ceil(x)
+}
+
+// Round rounds Decimal x to an integer using configured rounding mode.
+func (c *Context) Round(x *Decimal) *Decimal {
+	if x == nil || !x.IsFinite() {
+		return x
+	}
+	return c.finalise(new(Decimal).Set(x), int(x.e)+1, c.Rounding, false)
+}
+
+// Round rounds Decimal x using default context.
+func (x *Decimal) Round() *Decimal {
+	return globalContext.Round(x)
+}
