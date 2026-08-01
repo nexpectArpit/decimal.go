@@ -1,0 +1,16 @@
+{
+  "timestamp": "",
+  "environment": {
+    "go_version": "1.22",
+    "os": "darwin",
+    "arch": "arm64"
+  },
+  "benchmarks": {
+    "addition": {},
+    "subtraction": {},
+    "multiplication": {},
+    "division": {},
+    "pow": {},
+    "sqrt": {}
+  }
+}

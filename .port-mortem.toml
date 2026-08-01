@@ -1,0 +1,18 @@
+[project]
+name = "decimal.go"
+language = "go"
+track = "F"
+track_name = "Runtime Modernization (JavaScript -> Go)"
+source_url = "https://github.com/MikeMcl/decimal.js"
+kickoff_hash = ""
+
+[deliverables]
+01_public_repo = true
+02_one_step_build = "make build"
+03_original_tests = "tests/original"
+04_fuzz_harness = "fuzz/harness.go"
+05_decisions_log = "DECISIONS.md"
+06_benchmark_report = "bench/results.json"
+
+[authors]
+name = "Port Mortem Team"

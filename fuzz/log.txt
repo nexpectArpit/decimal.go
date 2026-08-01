@@ -1,0 +1,4 @@
+# Differential Fuzzing Log (Go decimal vs decimal.js)
+# Run Duration: 60s+
+# Total Inputs Tested: 0
+# Divergences Found: 0
