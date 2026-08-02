@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 
 	decimal "our-projectInGO/src"
 )
@@ -17,6 +18,7 @@ type Request struct {
 	ToExpPos  *int64        `json:"toExpPos,omitempty"`
 	MinE      *int64        `json:"minE,omitempty"`
 	MaxE      *int64        `json:"maxE,omitempty"`
+	Modulo    *int          `json:"modulo,omitempty"`
 	Args      []interface{} `json:"args"`
 }
 
@@ -62,6 +64,9 @@ func runRPC() {
 		if req.Rounding >= 0 {
 			ctx.Config(decimal.WithRounding(decimal.RoundingMode(req.Rounding)))
 		}
+		if req.Modulo != nil {
+			ctx.Config(decimal.WithModulo(decimal.ModuloMode(*req.Modulo)))
+		}
 		if req.ToExpNeg != nil {
 			ctx.Config(decimal.WithToExpNeg(*req.ToExpNeg))
 		}
@@ -101,6 +106,9 @@ func handleOp(ctx *decimal.Context, req Request) Response {
 		b, err := ctx.New(req.Args[1])
 		if err != nil {
 			return Response{Error: err.Error()}
+		}
+		if a.IsNaN() || b.IsNaN() {
+			return Response{IsCmp: false}
 		}
 		return Response{IsCmp: true, CmpRes: a.Cmp(b)}
 
@@ -210,6 +218,17 @@ func handleOp(ctx *decimal.Context, req Request) Response {
 	case "cbrt":
 		return makeResp(ctx, ctx.Cbrt(a))
 
+	case "hypot":
+		args := make([]*decimal.Decimal, 0, len(req.Args))
+		for _, arg := range req.Args {
+			d, err := ctx.New(arg)
+			if err != nil {
+				d, _ = ctx.New("NaN")
+			}
+			args = append(args, d)
+		}
+		return makeResp(ctx, ctx.Hypot(args...))
+
 	case "pow":
 		if len(req.Args) < 2 {
 			return Response{Error: "missing operand"}
@@ -222,6 +241,17 @@ func handleOp(ctx *decimal.Context, req Request) Response {
 
 	case "ln":
 		return makeResp(ctx, ctx.Ln(a))
+
+	case "log":
+		if len(req.Args) < 2 {
+			ten, _ := ctx.New(10)
+			return makeResp(ctx, ctx.Log(a, ten))
+		}
+		b, err := ctx.New(req.Args[1])
+		if err != nil {
+			return Response{Error: err.Error()}
+		}
+		return makeResp(ctx, ctx.Log(a, b))
 
 	case "exp":
 		return makeResp(ctx, ctx.Exp(a))
@@ -262,11 +292,52 @@ func handleOp(ctx *decimal.Context, req Request) Response {
 	case "atanh":
 		return makeResp(ctx, ctx.Atanh(a))
 
+	case "atan2", "arctan2":
+		if len(req.Args) < 2 {
+			return Response{Error: "missing operand"}
+		}
+		b, err := ctx.New(req.Args[1])
+		if err != nil {
+			return Response{Error: err.Error()}
+		}
+		return makeResp(ctx, ctx.Atan2(a, b))
+
 	case "abs":
 		return makeResp(ctx, a.Abs())
 
 	case "neg":
 		return makeResp(ctx, a.Neg())
+
+	case "divToInt", "dividedToIntegerBy":
+		if len(req.Args) < 2 {
+			return Response{Error: "missing operand"}
+		}
+		b, err := ctx.New(req.Args[1])
+		if err != nil {
+			return Response{Error: err.Error()}
+		}
+		return makeResp(ctx, ctx.DivToInt(a, b))
+
+	case "toFixed":
+		if len(req.Args) < 2 {
+			return Response{Error: "missing operand"}
+		}
+		dp, _ := strconv.Atoi(fmt.Sprintf("%v", req.Args[1]))
+		return Response{String: ctx.ToFixed(a, dp)}
+
+	case "toExponential":
+		if len(req.Args) < 2 {
+			return Response{Error: "missing operand"}
+		}
+		dp, _ := strconv.Atoi(fmt.Sprintf("%v", req.Args[1]))
+		return Response{String: ctx.ToExponential(a, dp)}
+
+	case "toPrecision":
+		if len(req.Args) < 2 {
+			return Response{Error: "missing operand"}
+		}
+		sd, _ := strconv.Atoi(fmt.Sprintf("%v", req.Args[1]))
+		return Response{String: ctx.ToPrecision(a, sd)}
 
 	case "trunc", "truncated":
 		return makeResp(ctx, ctx.Trunc(a))

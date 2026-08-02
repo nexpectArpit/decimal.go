@@ -37,3 +37,16 @@ func TestFloat64Conversion(t *testing.T) {
 		t.Fatalf("expected ~3.141592653589793, got %v", fVal)
 	}
 }
+
+func TestToFixedRoundUp(t *testing.T) {
+	ctx := decimal.DefaultContext()
+	ctx.Config(decimal.WithRounding(decimal.RoundUp))
+	x, err := ctx.New("-0.0000000000177")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	res := ctx.ToFixed(x, 4)
+	if res != "-0.0001" {
+		t.Fatalf("expected '-0.0001', got '%s'", res)
+	}
+}

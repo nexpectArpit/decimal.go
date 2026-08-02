@@ -1,7 +1,7 @@
 // Adds global: T
 
 T = (function () {
-  var passed, testNumber, write;
+  var Decimal, passed, testNumber, write;
 
   function T(name, tests) {
     var time;
@@ -20,7 +20,8 @@ T = (function () {
       document.body.innerHTML += str.replace(/\n/g, '<br>').replace(/ /g, '&nbsp;');
     };
   } else {
-    Decimal = require('./bridge');
+    Decimal = global.Decimal || require('./bridge');
+    global.Decimal = Decimal;
     write = process.stdout.write.bind(process.stdout);
   }
 
@@ -33,7 +34,8 @@ T = (function () {
       write(
         '\n  Test number ' + testNumber + ' failed: assert' +
         '\n  Expected: true' +
-        '\n  Actual:   ' + actual
+        '\n  Actual:   ' + actual +
+        '\n  Stack:\n' + new Error().stack
       );
       //process.exit();
     }
@@ -48,7 +50,8 @@ T = (function () {
       write(
         '\n  Test number ' + testNumber + ' failed: assertEqual' +
         '\n  Expected: ' + expected +
-        '\n  Actual:   ' + actual
+        '\n  Actual:   ' + actual +
+        '\n  Stack:\n' + new Error().stack
       );
     }
   };
@@ -61,7 +64,8 @@ T = (function () {
       write(
         '\n  Test number ' + testNumber + ' failed: assertEqualDecimal' +
         '\n  x: ' + x.valueOf() +
-        '\n  y: ' + y.valueOf()
+        '\n  y: ' + y.valueOf() +
+        '\n  Stack:\n' + new Error().stack
       );
     }
   };
@@ -81,7 +85,8 @@ T = (function () {
         '\n  Expected sign:     ' + sign +
         '\n  Actual digits:     ' + n.d +
         '\n  Actual exponent:   ' + n.e +
-        '\n  Actual sign:       ' + n.s
+        '\n  Actual sign:       ' + n.s +
+        '\n  Stack:\n' + new Error().stack
       );
     }
   };
@@ -100,7 +105,8 @@ T = (function () {
       write(
         '\n  Test number ' + testNumber + ' failed: assertException' +
         '\n  Expected: ' + msg + ' to raise a DecimalError.' +
-        '\n  Actual:   ' + (actual || 'no exception')
+        '\n  Actual:   ' + (actual || 'no exception') +
+        '\n  Stack:\n' + new Error().stack
       );
     }
   };
