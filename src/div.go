@@ -83,63 +83,124 @@ func (c *Context) divide(x, y *Decimal, pr int, rm RoundingMode, dp bool) *Decim
 			xL = len(xd)
 		}
 
-		rem := append([]int32(nil), xd...)
-		if len(rem) < yL {
-			zeros := make([]int32, yL-len(rem))
-			rem = append(rem, zeros...)
-		}
-
 		xi := yL
+		rem := make([]int32, yL)
+		copy(rem, xd)
+
+		yz := make([]int32, len(yd)+1)
+		copy(yz[1:], yd)
+
 		yd0 := yd[0]
-		if yd[1] >= Base/2 {
+		if len(yd) > 1 && yd[1] >= Base/2 {
 			yd0++
 		}
 
 		for sdLimbs >= 0 {
+			k := int32(0)
 			remL := len(rem)
-			cmp := compareLimbs(yd, rem, yL, remL)
+			cmp := compareLimbsDiv(yd, rem, yL, remL)
 
-			var k int32 = 0
 			if cmp < 0 {
 				rem0 := int64(rem[0])
 				if yL != remL && len(rem) > 1 {
 					rem0 = rem0*int64(Base) + int64(rem[1])
 				}
+
 				k = int32(rem0 / int64(yd0))
 
+				var prod []int32
 				if k > 1 {
 					if k >= Base {
 						k = Base - 1
 					}
-					prod := multiplyInteger(yd, k, Base)
+					prod = multiplyInteger(yd, k, Base)
 					prodL := len(prod)
-					cmpProd := compareLimbs(prod, rem, prodL, remL)
-					if cmpProd == 1 {
+					remL = len(rem)
+
+					cmp = compareLimbsDiv(prod, rem, prodL, remL)
+
+					if cmp == 1 {
 						k--
+						var subY []int32
+						if yL < prodL {
+							subY = yz
+						} else {
+							subY = yd
+						}
+						prod = subtractInteger(prod, subY, Base)
 					}
 				} else {
-					k = 1
+					if k == 0 {
+						cmp = 1
+						k = 1
+					}
+					prod = make([]int32, len(yd))
+					copy(prod, yd)
 				}
+
+				prodL := len(prod)
+				if prodL < remL {
+					prod = append([]int32{0}, prod...)
+					prodL++
+				}
+
+				rem = subtractInteger(rem, prod, Base)
+				remL = len(rem)
+
+				if cmp == -1 {
+					cmp = compareLimbsDiv(yd, rem, yL, remL)
+					if cmp < 1 {
+						k++
+						var subY []int32
+						if yL < remL {
+							subY = yz
+						} else {
+							subY = yd
+						}
+						rem = subtractInteger(rem, subY, Base)
+					}
+				}
+				remL = len(rem)
 			} else if cmp == 0 {
-				k = 1
+				k++
 				rem = []int32{0}
+				remL = 1
 			}
 
 			qd = append(qd, k)
-			if xi < xL {
-				rem = append(rem, xd[xi])
-				xi++
+
+			if cmp != 0 && len(rem) > 0 && rem[0] != 0 {
+				var nextD int32 = 0
+				if xi < xL {
+					nextD = xd[xi]
+				}
+				rem = append(rem, nextD)
 			} else {
-				rem = append(rem, 0)
+				var nextD int32 = 0
+				var hasNext = false
+				if xi < xL {
+					nextD = xd[xi]
+					hasNext = true
+				}
+				if hasNext {
+					rem = []int32{nextD}
+				} else {
+					rem = nil
+				}
 			}
+
+			xi++
 			sdLimbs--
+			if xi > xL && (len(rem) == 0 || rem[0] == 0) {
+				break
+			}
 		}
 
 		isTruncated = len(rem) > 0 && rem[0] != 0
 	}
 
 	// Leading zero shift
-	if len(qd) > 0 && qd[0] == 0 {
+	for len(qd) > 1 && qd[0] == 0 {
 		qd = qd[1:]
 	}
 
@@ -171,6 +232,32 @@ func (c *Context) divide(x, y *Decimal, pr int, rm RoundingMode, dp bool) *Decim
 // Matches decimal.js dividedBy / div (lines 468-470).
 func (c *Context) Div(x, y *Decimal) *Decimal {
 	return c.divide(x, y, c.Precision, c.Rounding, false)
+}
+
+func subtractInteger(xd, yd []int32, base int32) []int32 {
+	res := append([]int32(nil), xd...)
+	if len(res) < len(yd) {
+		zeros := make([]int32, len(yd)-len(res))
+		res = append(res, zeros...)
+	}
+	for i := len(yd) - 1; i >= 0; i-- {
+		if res[i] < yd[i] {
+			j := i
+			for j > 0 && res[j-1] == 0 {
+				j--
+				res[j] = base - 1
+			}
+			if j > 0 {
+				res[j-1]--
+			}
+			res[i] += base
+		}
+		res[i] -= yd[i]
+	}
+	for len(res) > 1 && res[0] == 0 {
+		res = res[1:]
+	}
+	return res
 }
 
 // Div computes x / y using default context.

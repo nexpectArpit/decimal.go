@@ -29,9 +29,6 @@ func (x *Decimal) Float64() (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	if x.s < 0 {
-		val = -val
-	}
 	return val, nil
 }
 

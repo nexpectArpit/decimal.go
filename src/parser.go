@@ -1,7 +1,6 @@
 package decimal
 
 import (
-	"math"
 	"regexp"
 	"strconv"
 	"strings"
@@ -119,6 +118,10 @@ func (c *Context) parseDecimal(x *Decimal, str string) *Decimal {
 		x.d = []int32{0}
 	}
 
+	for len(x.d) > 1 && x.d[len(x.d)-1] == 0 {
+		x.d = x.d[:len(x.d)-1]
+	}
+
 	return x
 }
 
@@ -135,7 +138,8 @@ func (c *Context) parseOther(x *Decimal, str string) (*Decimal, error) {
 			sb.WriteByte(str[i])
 		}
 		str = sb.String()
-		if isDecimal.MatchString(str) {
+		if !isDecimal.MatchString(str) && !isHex.MatchString(str) && !isBinary.MatchString(str) && !isOctal.MatchString(str) && str != "NaN" && str != "Infinity" { return nil, ErrInvalidArgument }
+	if isDecimal.MatchString(str) {
 			return c.parseDecimal(x, str), nil
 		}
 	}
@@ -175,11 +179,12 @@ func (c *Context) parseOther(x *Decimal, str string) (*Decimal, error) {
 	dotIdx := strings.IndexByte(str, '.')
 	isFloat := dotIdx >= 0
 
-	var divisor int64 = 1
+	var divisorDec *Decimal
 	if isFloat {
 		str = str[:dotIdx] + str[dotIdx+1:]
 		fracLen := len(str) - dotIdx
-		divisor = int64(math.Pow(float64(base), float64(fracLen)))
+		baseDec, _ := c.New(base)
+		divisorDec = c.intPow(baseDec, int64(fracLen), c.Precision)
 	}
 
 	rawLimbs := convertBase(str, base, int(Base))
@@ -204,14 +209,14 @@ func (c *Context) parseOther(x *Decimal, str string) (*Decimal, error) {
 	x.e = getBase10Exponent(xd, int64(xe))
 	x.d = xd
 
-	if isFloat && divisor > 1 {
-		// Division by divisor when fraction is present
-		// Divisor handling placeholder
+	if isFloat && divisorDec != nil {
+		x = c.divide(x, divisorDec, (len(str)+1)*4, RoundDown, false)
 	}
 
 	if p != 0 {
-		// Multiply by 2^p
-		// Binary exponent scaling placeholder
+		twoDec, _ := c.New(2)
+		pPow := c.intPow(twoDec, int64(p), c.Precision)
+		x = c.Mul(x, pPow)
 	}
 
 	return x, nil

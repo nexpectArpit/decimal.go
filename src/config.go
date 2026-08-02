@@ -113,7 +113,7 @@ func WithToExpPos(e int64) Option {
 // WithMinE sets the minimum exponent limit.
 func WithMinE(e int64) Option {
 	return func(c *Context) {
-		if e >= -ExpLimit && e <= -1 {
+		if e >= -ExpLimit && e <= 0 {
 			c.MinE = e
 		}
 	}
@@ -122,7 +122,7 @@ func WithMinE(e int64) Option {
 // WithMaxE sets the maximum exponent limit.
 func WithMaxE(e int64) Option {
 	return func(c *Context) {
-		if e >= 1 && e <= ExpLimit {
+		if e >= 0 && e <= ExpLimit {
 			c.MaxE = e
 		}
 	}

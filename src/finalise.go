@@ -7,10 +7,6 @@ import (
 // finalise rounds Decimal x to sd significant digits using rounding mode rm.
 // Matches decimal.js finalise() (lines 2946-3110).
 func (c *Context) finalise(x *Decimal, sd int, rm RoundingMode, isTruncated bool) *Decimal {
-	if sd < 0 {
-		return x
-	}
-
 	xd := x.d
 	if xd == nil {
 		return x
@@ -111,15 +107,18 @@ func (c *Context) finalise(x *Decimal, sd int, rm RoundingMode, isTruncated bool
 	}
 
 	if sd < 1 || len(xd) == 0 || xd[0] == 0 {
-		x.d = x.d[:0]
 		if roundUp {
-			sd -= int(x.e) + 1
-			rem := (LogBase - sd%LogBase) % LogBase
-			x.d = append(x.d, int32(math.Pow10(rem)))
-			x.e = int64(-sd)
+			newSd := int64(sd) - (x.e + 1)
+			rem := newSd % int64(LogBase)
+			if rem < 0 {
+				rem += int64(LogBase)
+			}
+			exp := (int64(LogBase) - rem) % int64(LogBase)
+			x.d = []int32{int32(math.Pow10(int(exp)))}
+			x.e = -newSd
 		} else {
+			x.d = []int32{0}
 			x.e = 0
-			x.d = append(x.d, 0)
 		}
 		return x
 	}
@@ -133,8 +132,9 @@ func (c *Context) finalise(x *Decimal, sd int, rm RoundingMode, isTruncated bool
 		x.d = xd[:xdi+1]
 		k = int(math.Pow10(LogBase - i))
 		if j > 0 {
-			val := (w / int32(math.Pow10(digits-j))) % int32(math.Pow10(j))
-			x.d[xdi] = val * int32(k)
+			wPart := int32(float64(w) / math.Pow10(digits-j))
+			wPart %= int32(math.Pow10(j))
+			x.d[xdi] = wPart * int32(k)
 		} else {
 			x.d[xdi] = 0
 		}
@@ -161,12 +161,13 @@ func (c *Context) finalise(x *Decimal, sd int, rm RoundingMode, isTruncated bool
 				break
 			} else {
 				x.d[xdi] += int32(k)
-				if x.d[xdi] != Base {
+				if x.d[xdi] < Base {
 					break
 				}
-				x.d[xdi] = 0
+				carry := x.d[xdi] / Base
+				x.d[xdi] %= Base
 				xdi--
-				k = 1
+				k = int(carry)
 			}
 		}
 	}
@@ -188,23 +189,32 @@ checkBounds:
 	return x
 }
 
-// Trunc truncates Decimal x to an integer value towards zero.
+// Trunc rounds Decimal x towards zero to an integer.
 func (c *Context) Trunc(x *Decimal) *Decimal {
-	if x == nil || !x.IsFinite() {
+	if x == nil || !x.IsFinite() || x.IsZero() {
 		return x
+	}
+	if x.e < 0 {
+		return &Decimal{s: x.s, e: 0, d: []int32{0}} // trunc(0.5) = 0
 	}
 	return c.finalise(new(Decimal).Set(x), int(x.e)+1, RoundDown, false)
 }
 
-// Trunc truncates Decimal x using default context.
+// Trunc rounds Decimal x towards zero using default context.
 func (x *Decimal) Trunc() *Decimal {
 	return globalContext.Trunc(x)
 }
 
 // Floor rounds Decimal x towards -Infinity to an integer.
 func (c *Context) Floor(x *Decimal) *Decimal {
-	if x == nil || !x.IsFinite() {
+	if x == nil || !x.IsFinite() || x.IsZero() {
 		return x
+	}
+	if x.e < 0 {
+		if x.s < 0 {
+			return &Decimal{s: -1, e: 0, d: []int32{1}} // floor(-0.5) = -1
+		}
+		return &Decimal{s: 1, e: 0, d: []int32{0}} // floor(0.5) = 0
 	}
 	return c.finalise(new(Decimal).Set(x), int(x.e)+1, RoundFloor, false)
 }
@@ -216,8 +226,14 @@ func (x *Decimal) Floor() *Decimal {
 
 // Ceil rounds Decimal x towards +Infinity to an integer.
 func (c *Context) Ceil(x *Decimal) *Decimal {
-	if x == nil || !x.IsFinite() {
+	if x == nil || !x.IsFinite() || x.IsZero() {
 		return x
+	}
+	if x.e < 0 {
+		if x.s < 0 {
+			return &Decimal{s: -1, e: 0, d: []int32{0}} // ceil(-0.5) = -0
+		}
+		return &Decimal{s: 1, e: 0, d: []int32{1}} // ceil(0.5) = 1
 	}
 	return c.finalise(new(Decimal).Set(x), int(x.e)+1, RoundCeil, false)
 }

@@ -11,8 +11,8 @@ func (c *Context) Sub(x, y *Decimal) *Decimal {
 		return &Decimal{s: 0}
 	}
 
-	xVal, _ := c.New(x)
-	yVal, _ := c.New(y)
+	xVal := x
+	yVal := y
 
 	// Non-finite handling
 	if xVal.d == nil || yVal.d == nil {
@@ -33,8 +33,8 @@ func (c *Context) Sub(x, y *Decimal) *Decimal {
 
 	// If signs differ, convert to addition: x - (-y) -> x + y
 	if xVal.s != yVal.s {
-		yVal.s = -yVal.s
-		return c.Add(xVal, yVal)
+		negY := &Decimal{s: -yVal.s, e: yVal.e, d: yVal.d}
+		return c.Add(xVal, negY)
 	}
 
 	// Zero handling
@@ -46,8 +46,8 @@ func (c *Context) Sub(x, y *Decimal) *Decimal {
 			return c.finalise(xVal, c.Precision, c.Rounding, false)
 		}
 		if xZero && !yZero {
-			yVal.s = -yVal.s
-			return c.finalise(yVal, c.Precision, c.Rounding, false)
+			negY := &Decimal{s: -yVal.s, e: yVal.e, d: yVal.d}
+			return c.finalise(negY, c.Precision, c.Rounding, false)
 		}
 		s := int8(1)
 		if c.Rounding == RoundFloor {
@@ -77,10 +77,23 @@ func (c *Context) Sub(x, y *Decimal) *Decimal {
 			e = eX
 		}
 
-		limit := int64(math.Ceil(float64(c.Precision)/float64(LogBase))) + 2
+		var lenOther int
+		if xLTy {
+			lenOther = len(yd)
+		} else {
+			lenOther = len(xd)
+		}
+		limit := int64(math.Max(math.Ceil(float64(c.Precision)/float64(LogBase)), float64(lenOther))) + 2
 		if k > limit {
-			k = limit
-			*d = (*d)[:1]
+			if xLTy {
+				negY := &Decimal{
+					s: -yVal.s,
+					e: yVal.e,
+					d: yVal.d,
+				}
+				return c.finalise(negY, c.Precision, c.Rounding, false)
+			}
+			return c.finalise(xVal, c.Precision, c.Rounding, false)
 		}
 
 		zeros := make([]int32, k)
@@ -93,9 +106,10 @@ func (c *Context) Sub(x, y *Decimal) *Decimal {
 		}
 	}
 
+	resSign := xVal.s
 	if xLTy {
 		xd, yd = yd, xd
-		yVal.s = -yVal.s
+		resSign = -xVal.s
 	}
 
 	// Append zeros to xd if shorter than yd
@@ -140,7 +154,7 @@ func (c *Context) Sub(x, y *Decimal) *Decimal {
 	}
 
 	res := &Decimal{
-		s: yVal.s,
+		s: resSign,
 		e: getBase10Exponent(xd, e),
 		d: xd,
 	}
@@ -159,25 +173,32 @@ func (x *Decimal) Minus(y *Decimal) *Decimal {
 }
 
 // Abs returns a new Decimal representing the absolute value of x.
+// Matches decimal.js abs() (lines 530-540).
 func (x *Decimal) Abs() *Decimal {
-	if x == nil {
+	if x == nil || x.IsNaN() {
 		return &Decimal{s: 0}
 	}
-	res, _ := globalContext.New(x)
-	if res.s < 0 {
-		res.s = 1
+	if x.d == nil {
+		return &Decimal{s: 1, e: 0, d: nil}
 	}
-	return globalContext.finalise(res, globalContext.Precision, globalContext.Rounding, false)
+	dCopy := make([]int32, len(x.d))
+	copy(dCopy, x.d)
+	return &Decimal{s: 1, e: x.e, d: dCopy}
 }
 
 // Neg returns a new Decimal representing the negated value of x (-x).
 func (x *Decimal) Neg() *Decimal {
-	if x == nil {
+	if x == nil || x.IsNaN() {
 		return &Decimal{s: 0}
 	}
-	res, _ := globalContext.New(x)
-	if res.s != 0 {
-		res.s = -res.s
+	var dCopy []int32
+	if x.d != nil {
+		dCopy = make([]int32, len(x.d))
+		copy(dCopy, x.d)
 	}
-	return globalContext.finalise(res, globalContext.Precision, globalContext.Rounding, false)
+	s := x.s
+	if s != 0 {
+		s = -s
+	}
+	return &Decimal{s: s, e: x.e, d: dCopy}
 }

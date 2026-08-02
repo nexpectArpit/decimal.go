@@ -1,24 +1,47 @@
 package decimal
 
 // Mod computes x % y using context c settings.
-// Matches decimal.js modulo / mod (lines 1133-1185).
+// Matches decimal.js modulo / mod (lines 1438-1471).
 func (c *Context) Mod(x, y *Decimal) *Decimal {
-	if x == nil || y == nil || !x.IsFinite() || !y.IsFinite() || y.IsZero() {
+	if x == nil || y == nil {
 		return &Decimal{s: 0}
 	}
-	if x.IsZero() {
-		return &Decimal{s: x.s, e: 0, d: []int32{0}}
+
+	// Return NaN if x is ±Infinity or NaN, or y is NaN or ±0.
+	if x.d == nil || y.s == 0 || (y.d != nil && len(y.d) > 0 && y.d[0] == 0) {
+		return &Decimal{s: 0}
 	}
 
-	// Compute quotient q = trunc(x / y)
-	q := c.divide(x, y, 0, RoundDown, true)
-	qTrunc := c.finalise(q, int(q.e)+1, RoundDown, false)
+	// Return x if y is ±Infinity or x is ±0.
+	if y.d == nil || (x.d != nil && len(x.d) > 0 && x.d[0] == 0) {
+		return c.finalise(new(Decimal).Set(x), c.Precision, c.Rounding, false)
+	}
 
-	// r = x - (y * qTrunc)
-	prod := c.Mul(y, qTrunc)
-	rem := c.Sub(x, prod)
+	// Compute required precision for intermediate operations to avoid truncation of remainder.
+	wpr := c.Precision + 40
+	diffE := int(x.e - y.e)
+	if diffE > 0 {
+		wpr += diffE
+	}
 
-	return rem
+	evalCtx := c.Clone()
+	evalCtx.Precision = wpr
+	evalCtx.Rounding = RoundDown
+
+	var q *Decimal
+	if c.Modulo == ModuloEuclid {
+		// Euclidian division: q = sign(y) * floor(x / abs(y))
+		// result = x - q * y    where  0 <= result < abs(y)
+		q = evalCtx.divide(x, y.Abs(), 0, RoundingMode(ModuloFloor), true)
+		q.s *= y.s
+	} else {
+		q = evalCtx.divide(x, y, 0, RoundingMode(c.Modulo), true)
+	}
+
+	prod := evalCtx.Mul(q, y)
+	rem := evalCtx.Sub(x, prod)
+
+	return c.finalise(rem, c.Precision, c.Rounding, false)
 }
 
 // Mod computes x % y using default context.

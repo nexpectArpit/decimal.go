@@ -3,6 +3,30 @@ package decimal
 // compare compares digit array a of length aL against b of length bL in base 10^7.
 // Matches decimal.js compare() helper (lines 2697-2712).
 func compareLimbs(a, b []int32, aL, bL int) int {
+	minL := aL
+	if bL < minL {
+		minL = bL
+	}
+
+	for i := 0; i < minL; i++ {
+		if a[i] != b[i] {
+			if a[i] > b[i] {
+				return 1
+			}
+			return -1
+		}
+	}
+
+	if aL == bL {
+		return 0
+	}
+	if aL > bL {
+		return 1
+	}
+	return -1
+}
+
+func compareLimbsDiv(a, b []int32, aL, bL int) int {
 	if aL != bL {
 		if aL > bL {
 			return 1
@@ -18,6 +42,7 @@ func compareLimbs(a, b []int32, aL, bL int) int {
 			return -1
 		}
 	}
+
 	return 0
 }
 
@@ -45,10 +70,10 @@ func (x *Decimal) Cmp(y *Decimal) int {
 		if xd == nil && yd == nil {
 			return 0
 		}
-		if xd == nil && xs < 0 {
-			return 1
+		if xd == nil {
+			return int(xs)
 		}
-		return -1
+		return int(-ys)
 	}
 
 	// Either zero?
@@ -109,27 +134,41 @@ func (c *Context) Cmp(x, y *Decimal) int {
 
 // Eq returns true if x equals y.
 func (x *Decimal) Eq(y *Decimal) bool {
+	if x.IsNaN() || y.IsNaN() {
+		return false
+	}
 	return x.Cmp(y) == 0
 }
 
 // Gt returns true if x is greater than y.
 func (x *Decimal) Gt(y *Decimal) bool {
+	if x.IsNaN() || y.IsNaN() {
+		return false
+	}
 	return x.Cmp(y) > 0
 }
 
 // Gte returns true if x is greater than or equal to y.
 func (x *Decimal) Gte(y *Decimal) bool {
-	res := x.Cmp(y)
-	return res == 1 || res == 0
+	if x.IsNaN() || y.IsNaN() {
+		return false
+	}
+	return x.Cmp(y) >= 0
 }
 
 // Lt returns true if x is less than y.
 func (x *Decimal) Lt(y *Decimal) bool {
+	if x.IsNaN() || y.IsNaN() {
+		return false
+	}
 	return x.Cmp(y) < 0
 }
 
 // Lte returns true if x is less than or equal to y.
 func (x *Decimal) Lte(y *Decimal) bool {
+	if x.IsNaN() || y.IsNaN() {
+		return false
+	}
 	res := x.Cmp(y)
 	return res == -1 || res == 0
 }
@@ -167,7 +206,9 @@ func (x *Decimal) IsInt() bool {
 	if len(x.d) == 0 || x.d[0] == 0 {
 		return true
 	}
-	// Verify no fractional limbs exist past exponent position
+	if x.e < 0 {
+		return false
+	}
 	expLimbs := int(x.e / int64(LogBase))
 	if expLimbs >= len(x.d)-1 {
 		return true

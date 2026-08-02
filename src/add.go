@@ -11,9 +11,8 @@ func (c *Context) Add(x, y *Decimal) *Decimal {
 		return &Decimal{s: 0}
 	}
 
-	// Make copies of inputs
-	xVal, _ := c.New(x)
-	yVal, _ := c.New(y)
+	xVal := x
+	yVal := y
 
 	// If either is not finite...
 	if xVal.d == nil || yVal.d == nil {
@@ -34,24 +33,26 @@ func (c *Context) Add(x, y *Decimal) *Decimal {
 
 	// If signs differ, perform subtraction: x + (-y) -> x - y
 	if xVal.s != yVal.s {
-		yVal.s = -yVal.s
-		return c.Sub(xVal, yVal)
+		negY := &Decimal{s: -yVal.s, e: yVal.e, d: yVal.d}
+		return c.Sub(xVal, negY)
 	}
 
 	// If either is zero...
 	if len(xVal.d) > 0 && xVal.d[0] == 0 {
 		if len(yVal.d) > 0 && yVal.d[0] == 0 {
+			resSign := int8(1)
 			if c.Rounding == RoundFloor {
-				yVal.s = -1
-			} else {
-				yVal.s = 1
+				resSign = -1
 			}
-			return c.finalise(yVal, c.Precision, c.Rounding, false)
+			res := &Decimal{s: resSign, e: yVal.e, d: append([]int32(nil), yVal.d...)}
+			return c.finalise(res, c.Precision, c.Rounding, false)
 		}
-		return c.finalise(yVal, c.Precision, c.Rounding, false)
+		res := &Decimal{s: yVal.s, e: yVal.e, d: append([]int32(nil), yVal.d...)}
+		return c.finalise(res, c.Precision, c.Rounding, false)
 	}
 	if len(yVal.d) > 0 && yVal.d[0] == 0 {
-		return c.finalise(xVal, c.Precision, c.Rounding, false)
+		res := &Decimal{s: xVal.s, e: xVal.e, d: append([]int32(nil), xVal.d...)}
+		return c.finalise(res, c.Precision, c.Rounding, false)
 	}
 
 	// Exponents in base 10^7
@@ -66,17 +67,21 @@ func (c *Context) Add(x, y *Decimal) *Decimal {
 	if k != 0 {
 		var d *[]int32
 		if k < 0 {
+			lenOther := len(yd)
+			limit := int64(math.Max(math.Ceil(float64(c.Precision)/float64(LogBase)), float64(lenOther))) + 1
+			if -k > limit {
+				return c.finalise(yVal, c.Precision, c.Rounding, false)
+			}
 			d = &xd
 			k = -k
 		} else {
+			lenOther := len(xd)
+			limit := int64(math.Max(math.Ceil(float64(c.Precision)/float64(LogBase)), float64(lenOther))) + 1
+			if k > limit {
+				return c.finalise(xVal, c.Precision, c.Rounding, false)
+			}
 			d = &yd
 			e = eX
-		}
-
-		limit := int64(math.Ceil(float64(c.Precision)/float64(LogBase))) + 2
-		if k > limit {
-			k = limit
-			*d = (*d)[:1]
 		}
 
 		// Prepend zeros to align exponents

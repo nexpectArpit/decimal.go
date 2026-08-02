@@ -37,8 +37,8 @@ func (c *Context) Mul(x, y *Decimal) *Decimal {
 		return &Decimal{s: 0}
 	}
 
-	xVal, _ := c.New(x)
-	yVal, _ := c.New(y)
+	xVal := x
+	yVal := y
 
 	// Non-finite handling
 	if xVal.d == nil || yVal.d == nil {

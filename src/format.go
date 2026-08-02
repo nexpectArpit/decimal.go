@@ -3,6 +3,7 @@ package decimal
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // finiteToString formats a finite Decimal into normal or exponential string representation.
@@ -91,7 +92,7 @@ func (c *Context) String(x *Decimal) string {
 	isExp := x.e <= c.ToExpNeg || x.e >= c.ToExpPos
 	str := c.finiteToString(x, isExp, 0)
 
-	if x.s < 0 && (len(x.d) == 0 || x.d[0] != 0) {
+	if x.s < 0 {
 		return "-" + str
 	}
 	return str
@@ -106,6 +107,21 @@ func (c *Context) ToFixed(x *Decimal, dp int) string {
 
 	y := c.finalise(new(Decimal).Set(x), int(x.e)+dp+1, c.Rounding, false)
 	str := c.finiteToString(y, false, int(y.e)+dp+1)
+
+	if dotIdx := strings.IndexByte(str, '.'); dotIdx > -1 {
+		currentDp := len(str) - dotIdx - 1
+		if currentDp > dp {
+			if dp == 0 {
+				str = str[:dotIdx]
+			} else {
+				str = str[:dotIdx+1+dp]
+			}
+		} else if currentDp < dp {
+			str += getZeroString(dp - currentDp)
+		}
+	} else if dp > 0 {
+		str += "." + getZeroString(dp)
+	}
 
 	if x.IsNeg() && !x.IsZero() {
 		return "-" + str
@@ -123,6 +139,14 @@ func (x *Decimal) ToFixed(dp int) string {
 func (c *Context) ToExponential(x *Decimal, dp int) string {
 	if x == nil || !x.IsFinite() {
 		return c.String(x)
+	}
+
+	if dp < 0 {
+		str := c.finiteToString(x, true, 0)
+		if x.IsNeg() && !x.IsZero() {
+			return "-" + str
+		}
+		return str
 	}
 
 	y := c.finalise(new(Decimal).Set(x), dp+1, c.Rounding, false)

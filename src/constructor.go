@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 )
 
 // New creates a new Decimal from string, int, int64, float64, or Decimal instance using the global context.
@@ -26,14 +25,8 @@ func (c *Context) New(v interface{}) (*Decimal, error) {
 			return nil, fmt.Errorf("%w: nil Decimal", ErrInvalidArgument)
 		}
 		x.s = val.s
-		if val.d == nil || val.e > c.MaxE {
-			x.d = nil
-			x.e = 0
-		} else if val.e < c.MinE {
-			x.d = []int32{0}
-			x.e = 0
-		} else {
-			x.e = val.e
+		x.e = val.e
+		if val.d != nil {
 			x.d = make([]int32, len(val.d))
 			copy(x.d, val.d)
 		}
@@ -84,7 +77,7 @@ func (c *Context) New(v interface{}) (*Decimal, error) {
 		return c.parseDecimal(x, strconv.FormatFloat(val, 'g', -1, 64)), nil
 
 	case string:
-		str := strings.TrimSpace(val)
+		str := val
 		if len(str) == 0 {
 			return nil, fmt.Errorf("%w: empty string", ErrInvalidArgument)
 		}
@@ -94,6 +87,10 @@ func (c *Context) New(v interface{}) (*Decimal, error) {
 			str = str[1:]
 		} else if str[0] == '+' {
 			str = str[1:]
+		}
+
+		if len(str) == 0 {
+			return nil, fmt.Errorf("%w: invalid decimal string format", ErrInvalidArgument)
 		}
 
 		if isDecimal.MatchString(str) {
