@@ -1,4 +1,10 @@
-# Differential Fuzzing Log (Go decimal vs Expected Spec)
-# Run Duration: 5.00s
-# Total Inputs Tested: 4314728
-# Divergences Found: 0
+# Phase 4 Differential Fuzzing Log
+# Run Duration: 5.0000s
+# Total Iterations: 19538
+# Total Divergences: 19129
+# First Critical Divergence:
+#   Op: Sin
+#   Input: -70.438949
+#   Go Result: 9.999999225923497411e+34
+#   Expected: -0.969678
+#   Rel Error: 99999992259234968916323537040441344.000000
