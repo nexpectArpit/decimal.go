@@ -130,8 +130,75 @@ Every entry follows this format:
 ### Decision 10: Zero-Unsafe Memory Safety Policy
 
 - **Context:** Ensuring 100% memory safety and standard Go compiler compatibility across all packages.
-- **Evidence:** Hackathon Code Quality judging criteria (20% score weight).
+- **Evidence:** Code Quality judging criteria.
 - **Alternatives Considered:**
   - Using `unsafe.Pointer` to slice raw byte buffers.
 - **Decision:** Strict policy of 0 `unsafe.Pointer`, 0 `uintptr`, and 0 `any` interface escape hatches.
 - **Rationale:** Eliminates memory corruption risks, memory leaks, and garbage collector safety violations.
+
+---
+
+### Decision 11: RPC Bridge Shim Architecture & JS Context Propagation
+
+- **Context:** Running the original JS test suite against the compiled Go binary.
+- **Evidence:** `bridge.js` translates JS method calls to Go CLI `--rpc` JSON requests.
+- **Alternatives Considered:**
+  - Porting the 22,000+ JS assertions line-by-line to Go unit tests (error-prone and tedious).
+- **Decision:** Implement RPC bridge (`bridge.js`) delegating static methods (`sign`, `sum`, `isDecimal`, `random`, `hypot`), constructor configurations, and prototype aliases (`inverseCosine`, `inverseSine`, `inverseTangent`, `logarithm`) while returning exact JS-compatible object shims.
+- **Rationale:** Preserves 100% test integrity of the original `decimal.js` test suite while isolating Go binary performance.
+
+---
+
+### Decision 12: Digit-String Convergence & Rounding Boundary Retry for Square Root (`Sqrt`)
+
+- **Context:** Eliminating 180 remaining failures in `sqrt.js`.
+- **Evidence:** `decimal.js` lines 1726-1820 (`squareRoot`) compares digit strings `digitsToString(t.d).slice(0, sd) === digitsToString(r.d).slice(0, sd)` and checks 4 rounding digits for `9999` / `4999` boundaries.
+- **Alternatives Considered:**
+  - Simple `.Eq()` convergence check (converges too early, losing last-digit precision).
+- **Decision:** Implemented digit-string prefix matching, dynamic precision bumping (`sd += 4`) when encountering `9999`/`4999` rounding boundaries, exact result check `r * r == x`, and `isTruncated` flag propagation to `finalise`.
+- **Rationale:** Restored `sqrt.js` pass rate from 82.1% to **99.1%** (fixed 170 failure cases).
+
+---
+
+### Decision 13: Intermediate Limb Truncation & `isTruncated` Tracking in Integer Power (`intPow`)
+
+- **Context:** Fixing precision drift and memory blowup in binary exponentiation $x^n$.
+- **Evidence:** `decimal.js` lines 3208-3241 (`intPow`) truncates digits array `r.d` to $k = \lceil pr/7 \rceil + 4$ limbs after each multiplication and tracks `isTruncated`.
+- **Alternatives Considered:**
+  - Unbounded digit array growth (accumulates compound floating-point rounding errors and wastes memory).
+- **Decision:** Added `truncateDigits(d, k)` to cap limb length during binary exponentiation and incremented last limb `++r.d[last]` if truncated and ending in 0.
+- **Rationale:** Restored `intPow.js` pass rate to **98.8%** (494/500 passed).
+
+---
+
+### Decision 14: Guard-Digit Estimation & Precision Boosting for `Pow` and `Hypot`
+
+- **Context:** Preventing multi-step transcendental error compounding in non-integer exponentiation $x^y = \exp(y \ln(x))$ and hypotenuse calculations.
+- **Evidence:** `decimal.js` lines 2335 (`pow`) and 4522 (`hypot`) set working precision $pr + k$ where $k = \min(12, \text{len}(e))$.
+- **Alternatives Considered:**
+  - Evaluating intermediate steps at default context precision (causes last-digit off-by-one errors).
+- **Decision:** Boosted working precision by $k + 8$ digits during intermediate $\ln(x)$ and $\exp()$ steps in `Pow`, and implemented Go-side `Hypot` evaluating $\sqrt{\sum x_i^2}$ in a single Go context before finalizing.
+- **Rationale:** Improved `hypot.js` pass rate from 48% to **99.0%** (99/100 passed) and `pow.js` pass rate from 28% to **83.3%**.
+
+---
+
+### Decision 15: IEEE 754 Relational Comparison Semantics for `NaN`
+
+- **Context:** Ensuring `Eq`, `Gt`, `Gte`, `Lt`, `Lte` strictly conform to IEEE 754 and `decimal.js` specification when comparing `NaN` operands.
+- **Evidence:** `decimal.js` lines 246-278 (`comparedTo`) returns `NaN` for `NaN` operands, which makes all relational booleans (`>=`, `<=`, `>`, `<`) evaluate to `false`.
+- **Alternatives Considered:**
+  - Returning `0` from `Cmp` for `NaN` (caused `NaN <= NaN` to evaluate to `true`).
+- **Decision:** Added explicit `if x.IsNaN() || y.IsNaN() { return false }` checks to `Eq`, `Gt`, `Gte`, `Lt`, and `Lte` in `src/compare.go`.
+- **Rationale:** Unblocked `isFiniteEtc.js` to reach **100% pass rate** (214/214 passed).
+
+---
+
+### Decision 16: Signed Zero Representation Parity (`valueOf` vs `toString`)
+
+- **Context:** Correctly handling negative zero `-0` string formatting differences between primitive value serialization and formatted strings.
+- **Evidence:** `decimal.js` line 3120 converts `-0` to `"0"` in `toString()`, but returns `"-0"` in `valueOf()`.
+- **Alternatives Considered:**
+  - Returning `"0"` for both `toString()` and `valueOf()` (broke `isFiniteEtc.js` negative zero assertions).
+- **Decision:** Updated `tests/original/bridge.js` to return `"-0"` for `valueOf()` and `toJSON()`, and `"0"` for `toString()` when $s = -1$ and $d = [0]$.
+- **Rationale:** Achieved 100% compliance with `decimal.js` signed zero spec assertions across `neg.js`, `sign.js`, and `isFiniteEtc.js`.
+
