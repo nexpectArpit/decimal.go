@@ -392,7 +392,7 @@ Decimal.max = function(...args) {
   for (let i = 1; i < args.length; i++) {
     let current = new Decimal(args[i]);
     if (max.isNaN() || current.isNaN()) return new Decimal(NaN);
-    if (current.gt(max)) max = current;
+    if (current.gt(max) || (current.eq(max) && current.s === 1 && max.s === -1)) max = current;
   }
   return max;
 };
@@ -402,7 +402,7 @@ Decimal.min = function(...args) {
   for (let i = 1; i < args.length; i++) {
     let current = new Decimal(args[i]);
     if (min.isNaN() || current.isNaN()) return new Decimal(NaN);
-    if (current.lt(min)) min = current;
+    if (current.lt(min) || (current.eq(min) && current.s === -1 && min.s === 1)) min = current;
   }
   return min;
 };

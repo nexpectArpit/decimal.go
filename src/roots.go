@@ -61,7 +61,13 @@ func (c *Context) Sqrt(x *Decimal) *Decimal {
 	if x == nil || x.IsNaN() {
 		return &Decimal{s: 0}
 	}
-	if x.IsZero() || x.d == nil {
+	if x.d == nil {
+		if x.s < 0 {
+			return &Decimal{s: 0} // sqrt(-Infinity) = NaN
+		}
+		return &Decimal{s: 1, e: 0, d: nil}
+	}
+	if x.IsZero() {
 		return &Decimal{s: x.s, e: x.e, d: x.d}
 	}
 	if x.s < 0 {
@@ -69,8 +75,11 @@ func (c *Context) Sqrt(x *Decimal) *Decimal {
 	}
 
 	evalCtx := c.Clone()
-	evalCtx.Precision = c.Precision + 16
-	sd := c.Precision + 3
+	evalCtx.Precision = c.Precision + 20
+	if evalCtx.Precision < 36 {
+		evalCtx.Precision = 36
+	}
+	sd := c.Precision + 8
 	half, _ := evalCtx.New(0.5)
 
 	r := initialSqrtEstimate(evalCtx, x)
@@ -78,7 +87,7 @@ func (c *Context) Sqrt(x *Decimal) *Decimal {
 		r, _ = evalCtx.New(x)
 	}
 
-	var m bool
+	m := true
 	var rep bool
 
 	for i := 0; i < 60; i++ {
@@ -100,20 +109,21 @@ func (c *Context) Sqrt(x *Decimal) *Decimal {
 				n = rDigits[start : sd+1]
 			}
 
-			if n == "9999" || (!rep && n == "4999") {
+			if (!rep && (n == "9999" || n == "4999")) || (rep && n == "9999") {
 				if !rep {
 					tCheck := c.finalise(t, c.Precision+1, RoundDown, false)
 					if c.Mul(tCheck, tCheck).Eq(x) {
 						r = t
+						m = false
 						break
 					}
 				}
 				sd += 4
 				rep = true
 			} else {
-				if n == "0000" || (len(n) > 1 && n[0] == '5' && n[1:] == "000") {
-					rCheck := c.finalise(r, c.Precision+1, RoundDown, false)
-					m = !c.Mul(rCheck, rCheck).Eq(x)
+				rCheck := c.finalise(r, c.Precision+1, RoundDown, false)
+				if c.Mul(rCheck, rCheck).Eq(x) {
+					m = false
 				}
 				break
 			}

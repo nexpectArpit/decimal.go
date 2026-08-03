@@ -23,11 +23,14 @@ func (c *Context) getLn10(sd int) *Decimal {
 // Ln computes natural logarithm ln(x) using context c settings.
 // Matches decimal.js naturalLogarithm() / ln (lines 3398-3512).
 func (c *Context) Ln(x *Decimal) *Decimal {
-	if x == nil || x.IsNaN() || x.s < 0 {
+	if x == nil || x.IsNaN() {
 		return &Decimal{s: 0}
 	}
 	if x.IsZero() {
 		return &Decimal{s: -1, e: 0, d: nil} // -Infinity
+	}
+	if x.s < 0 {
+		return &Decimal{s: 0} // ln(-positive) = NaN
 	}
 	if x.d == nil {
 		return &Decimal{s: 1, e: 0, d: nil} // +Infinity
@@ -36,7 +39,7 @@ func (c *Context) Ln(x *Decimal) *Decimal {
 		return &Decimal{s: 1, e: 0, d: []int32{0}} // ln(1) = 0
 	}
 
-	wpr := c.Precision + 12
+	wpr := c.Precision + 40
 	evalCtx := c.Clone()
 	evalCtx.Precision = wpr
 	evalCtx.Rounding = RoundDown
@@ -159,14 +162,25 @@ func (c *Context) Exp(x *Decimal) *Decimal {
 	if x.IsZero() {
 		return &Decimal{s: 1, e: 0, d: []int32{1}} // exp(0) = 1
 	}
-	if x.e >= 16 {
+	if x.e < -int64(c.Precision+2) {
+		if x.s < 0 && (c.Rounding == RoundDown || c.Rounding == RoundFloor) {
+			nines := make([]int32, (c.Precision+6)/7)
+			for i := range nines {
+				nines[i] = Base - 1
+			}
+			res := &Decimal{s: 1, e: -1, d: nines}
+			return c.finalise(res, c.Precision, c.Rounding, true)
+		}
+		return &Decimal{s: 1, e: 0, d: []int32{1}}
+	}
+	if x.e >= 17 {
 		if x.s < 0 {
 			return &Decimal{s: 1, e: 0, d: []int32{0}} // exp(-large) = 0
 		}
 		return &Decimal{s: 1, e: 0, d: nil} // exp(+large) = +Inf
 	}
 
-	wpr := c.Precision + 12
+	wpr := c.Precision + 28
 	evalCtx := c.Clone()
 	evalCtx.Precision = wpr
 	evalCtx.Rounding = RoundDown
