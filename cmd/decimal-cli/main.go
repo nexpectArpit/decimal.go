@@ -86,6 +86,16 @@ func runRPC() {
 }
 
 func handleOp(ctx *decimal.Context, req Request) Response {
+	if req.Op == "random" {
+		sd := 0
+		if len(req.Args) > 0 {
+			if v, err := strconv.Atoi(fmt.Sprintf("%v", req.Args[0])); err == nil {
+				sd = v
+			}
+		}
+		return makeResp(ctx, ctx.Random(sd))
+	}
+
 	if len(req.Args) == 0 {
 		return Response{Error: "no arguments provided"}
 	}

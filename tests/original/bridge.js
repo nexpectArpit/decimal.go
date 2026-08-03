@@ -1,8 +1,49 @@
-const { spawnSync } = require('child_process');
+const { spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 const DecimalJS = require('../../../decimal.js/decimal.js');
 
 const CLI_PATH = path.join(__dirname, '../../bin/decimal-cli');
+
+// The Go CLI's --rpc mode reads one JSON request per line from stdin and
+// writes one JSON response per line to stdout, in a persistent loop. Spawning
+// a fresh OS process for every single arithmetic call (the previous
+// spawnSync-based approach) made large randomized test loops (e.g.
+// powSqrt.js's 10,000-iteration x 3-calls-per-iteration loop) take minutes
+// due to process-spawn overhead dominating actual computation time. Instead,
+// spawn the CLI once and talk to it synchronously via blocking reads on its
+// stdout file descriptor, reusing the same process for every call.
+let cliProc = null;
+let cliReadBuf = Buffer.alloc(0);
+
+function ensureCliProc() {
+  if (cliProc && !cliProc.killed) return cliProc;
+  cliProc = spawn(CLI_PATH, ['--rpc'], { stdio: ['pipe', 'pipe', 'inherit'] });
+  cliReadBuf = Buffer.alloc(0);
+  return cliProc;
+}
+
+function readLineSync(fd) {
+  const chunk = Buffer.alloc(65536);
+  for (;;) {
+    const nlIdx = cliReadBuf.indexOf(0x0a);
+    if (nlIdx !== -1) {
+      const line = cliReadBuf.slice(0, nlIdx).toString('utf8');
+      cliReadBuf = cliReadBuf.slice(nlIdx + 1);
+      return line;
+    }
+    let n;
+    try {
+      n = fs.readSync(fd, chunk, 0, chunk.length, null);
+    } catch (e) {
+      // The pipe fd is non-blocking; spin until the child has written data.
+      if (e.code === 'EAGAIN') continue;
+      throw e;
+    }
+    if (n === 0) throw new Error('Go CLI closed stdout unexpectedly');
+    cliReadBuf = Buffer.concat([cliReadBuf, chunk.slice(0, n)]);
+  }
+}
 
 function callGo(op, args, Ctor = Decimal) {
   const serializedArgs = (args || []).map(a => {
@@ -26,22 +67,24 @@ function callGo(op, args, Ctor = Decimal) {
     args: serializedArgs
   });
 
-  const res = spawnSync(CLI_PATH, ['--rpc'], {
-    input: payload + '\n',
-    encoding: 'utf8'
-  });
+  const proc = ensureCliProc();
+  proc.stdin.write(payload + '\n');
 
-  if (res.error) {
-    throw new Error('Go CLI Execution Error: ' + res.error.message);
-  }
-
-  const output = res.stdout.trim();
-  if (!output) {
+  const fd = proc.stdout.fd !== undefined ? proc.stdout.fd : proc.stdout._handle.fd;
+  const line = readLineSync(fd);
+  if (!line || !line.trim()) {
     throw new Error('Go CLI returned empty output');
   }
 
-  return JSON.parse(output);
+  return JSON.parse(line);
 }
+
+process.on('exit', () => {
+  if (cliProc && !cliProc.killed) {
+    try { cliProc.stdin.end(); } catch (e) {}
+    try { cliProc.kill(); } catch (e) {}
+  }
+});
 
 function callGoCtor(Ctor, op, args) {
   return callGo(op, args, Ctor);
@@ -413,13 +456,8 @@ Decimal.random = function (dp) {
   const Ctor = this || Decimal;
   if (dp !== undefined) {
     checkInt32(dp, 0, MAX_DIGITS);
-    const oldPrec = Ctor.precision;
-    Ctor.precision = dp;
-    const r = wrapJS(DecimalJS.random(dp), Ctor);
-    Ctor.precision = oldPrec;
-    return r;
   }
-  return wrapJS(DecimalJS.random(), Ctor);
+  return wrapRes(callGo('random', [dp !== undefined ? dp : Ctor.precision], Ctor));
 };
 Decimal.round = function(x) { return new Decimal(x).round(); };
 Decimal.sign = function (x) {

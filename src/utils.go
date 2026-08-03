@@ -2,6 +2,7 @@ package decimal
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 )
@@ -174,4 +175,60 @@ func (c *Context) Clamp(x, min, max *Decimal) *Decimal {
 
 func (x *Decimal) Clamp(min, max *Decimal) *Decimal {
 	return globalContext.Clamp(x, min, max)
+}
+
+// Random returns a new Decimal with a random value in [0, 1) with sd
+// significant digits (default c.Precision if sd <= 0).
+// Matches decimal.js Decimal.random() (lines 4677-4770), non-crypto branch.
+func (c *Context) Random(sd int) *Decimal {
+	if sd <= 0 {
+		sd = c.Precision
+	}
+	k := (sd + LogBase - 1) / LogBase
+	rd := make([]int32, k)
+	for i := 0; i < k; i++ {
+		rd[i] = int32(rand.Intn(int(Base)))
+	}
+
+	i := k - 1
+	rem := sd % LogBase
+	if rd[i] != 0 && rem != 0 {
+		n := int32(1)
+		for p := 0; p < LogBase-rem; p++ {
+			n *= 10
+		}
+		rd[i] = (rd[i] / n) * n
+	}
+
+	for i >= 0 && rd[i] == 0 {
+		rd = rd[:i]
+		i--
+	}
+
+	var e int64
+	if i < 0 {
+		e = 0
+		rd = []int32{0}
+	} else {
+		e = -1
+		for len(rd) > 0 && rd[0] == 0 {
+			rd = rd[1:]
+			e -= int64(LogBase)
+		}
+		digits := 1
+		for n := rd[0]; n >= 10; n /= 10 {
+			digits++
+		}
+		if digits < LogBase {
+			e -= int64(LogBase - digits)
+		}
+	}
+
+	return &Decimal{s: 1, e: e, d: rd}
+}
+
+// Random returns a new Decimal with a random value in [0, 1) using the
+// default context.
+func Random(sd int) *Decimal {
+	return globalContext.Random(sd)
 }
