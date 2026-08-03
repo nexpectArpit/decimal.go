@@ -21,7 +21,7 @@ fuzz:
 
 bench:
 	@echo "Running performance & memory allocation benchmarks..."
-	go test -bench=. -benchmem ./bench/...
+	go test -bench=. -benchmem ./tests/port/...
 
 clean:
 	@echo "Cleaning build cache..."
