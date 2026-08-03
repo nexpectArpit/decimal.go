@@ -122,7 +122,7 @@ func (x *Decimal) Dp() int {
 	if x == nil || !x.IsFinite() {
 		return -1
 	}
-	if x.d == nil || len(x.d) == 0 {
+	if len(x.d) == 0 {
 		return 0
 	}
 	str := digitsToString(x.d)
@@ -143,7 +143,7 @@ func (x *Decimal) Sd(includeZeros ...bool) int {
 	if x == nil || !x.IsFinite() {
 		return -1
 	}
-	if x.d == nil || len(x.d) == 0 {
+	if len(x.d) == 0 {
 		return 0
 	}
 	str := digitsToString(x.d)

@@ -231,7 +231,7 @@ func (x *Decimal) ValueOf() string {
 
 // MarshalJSON implements json.Marshaler.
 func (x *Decimal) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf("%q", x.ValueOf())), nil
+	return fmt.Appendf(nil, "%q", x.ValueOf()), nil
 }
 
 // convertToBaseString converts x to a given base string (2, 8, 16).
@@ -270,9 +270,10 @@ func (c *Context) convertToBaseString(x *Decimal, base int, sdPtr *int, rmPtr *i
 
 	// bitsPerChar: how many bits each output digit represents
 	bitsPerChar := 1
-	if base == 8 {
+	switch base {
+	case 8:
 		bitsPerChar = 3
-	} else if base == 16 {
+	case 16:
 		bitsPerChar = 4
 	}
 

@@ -8,12 +8,12 @@ func (c *Context) Mod(x, y *Decimal) *Decimal {
 	}
 
 	// Return NaN if x is ±Infinity or NaN, or y is NaN or ±0.
-	if x.d == nil || y.s == 0 || (y.d != nil && len(y.d) > 0 && y.d[0] == 0) {
+	if x.d == nil || y.s == 0 || (len(y.d) > 0 && y.d[0] == 0) {
 		return &Decimal{s: 0}
 	}
 
 	// Return x if y is ±Infinity or x is ±0.
-	if y.d == nil || (x.d != nil && len(x.d) > 0 && x.d[0] == 0) {
+	if y.d == nil || (len(x.d) > 0 && x.d[0] == 0) {
 		return c.finalise(new(Decimal).Set(x), c.Precision, c.Rounding, false)
 	}
 

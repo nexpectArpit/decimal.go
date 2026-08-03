@@ -82,10 +82,11 @@ func (c *Context) New(v interface{}) (*Decimal, error) {
 			return nil, fmt.Errorf("%w: empty string", ErrInvalidArgument)
 		}
 
-		if str[0] == '-' {
+		switch str[0] {
+		case '-':
 			x.s = -1
 			str = str[1:]
-		} else if str[0] == '+' {
+		case '+':
 			str = str[1:]
 		}
 
