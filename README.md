@@ -149,11 +149,7 @@ decimal.go/
 ├── tests/original/       # Original decimal.js test suite & bridge shim
 ├── fuzz/                 # Differential fuzz test harness
 ├── bench/                # Benchmark suite comparing Go vs JS performance
-├── ALGORITHM_REGISTER.md # Catalog of ported algorithms
 ├── DECISIONS.md          # Architecture decisions log with evidence
-├── FUNCTION_MAPPING.md   # Mapping of decimal.js methods to Go functions
-├── PERFORMANCE_REPORT.md # Benchmark analysis and methodology
-├── REPOSITORY_INDEX.md   # Index of source files and components
 ├── Makefile              # Build automation script
 ├── Dockerfile            # Container build instructions
 ├── go.mod                # Go module definition
