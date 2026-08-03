@@ -1,5 +1,9 @@
 package decimal
 
+import (
+	"math"
+)
+
 const (
 	// PI constant from decimal.js with 1000 digits of precision
 	PI = "3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679821480865132823066470938446095505822317253594081284811174502841027019385211055596446229489549303819644288109756659334461284756482337867831652712019091456485669234603486104543266482133936072602491412737245870066063155881748815209209628292540917153643678925903600113305305488204665213841469519415116094330572703657595919530921861173819326117931051185480744623799627495673518857527248912279381830119491298336733624406566430860213949463952247371907021798609437027705392171762931767523846748184676694051320005681271452635608277857713427577896091736371787214684409012249534301465495853710507922796892589235420199561121290219608640344181598136297747713099605187072113499999983729780499510597317328160963185950244594553469083026425223082533446850352619311881710100031378387528865875332083814206171776691473035982534904287554687311595628638823537875937519577818577805321712268066130019278766111959092164201989380952572010654858632789"
@@ -39,27 +43,10 @@ func (c *Context) Ln(x *Decimal) *Decimal {
 		return &Decimal{s: 1, e: 0, d: []int32{0}} // ln(1) = 0
 	}
 
-	wpr := c.Precision + 40
+	wpr := c.Precision + 80
 	evalCtx := c.Clone()
 	evalCtx.Precision = wpr
-	evalCtx.Rounding = RoundDown
-
-	absE := x.e
-	if absE < 0 {
-		absE = -absE
-	}
-	if absE >= 1500000000000000 {
-		ln10 := evalCtx.getLn10(wpr + 2)
-		eDec, _ := evalCtx.New(x.e)
-		term := evalCtx.Mul(ln10, eDec)
-
-		digits := digitsToString(x.d)
-		normStr := string(digits[0]) + "." + digits[1:]
-		xNorm, _ := evalCtx.New(normStr)
-		lnXNorm := evalCtx.Ln(xNorm)
-		res := evalCtx.Add(lnXNorm, term)
-		return c.finalise(res, c.Precision, c.Rounding, true)
-	}
+	evalCtx.Rounding = RoundHalfUp
 
 	y, _ := evalCtx.New(x)
 	n := int64(1)
@@ -180,7 +167,7 @@ func (c *Context) Exp(x *Decimal) *Decimal {
 		return &Decimal{s: 1, e: 0, d: nil} // exp(+large) = +Inf
 	}
 
-	wpr := c.Precision + 28
+	wpr := c.Precision + 60
 	evalCtx := c.Clone()
 	evalCtx.Precision = wpr
 	evalCtx.Rounding = RoundDown
@@ -241,7 +228,13 @@ func (x *Decimal) Exp() *Decimal {
 // Log computes logarithm of x in base y using context c settings.
 // Matches decimal.js logarithm / log (lines 1131-1185).
 func (c *Context) Log(x, y *Decimal) *Decimal {
-	if x == nil || x.IsNaN() || x.s < 0 {
+	if x == nil || x.IsNaN() {
+		return &Decimal{s: 0} // NaN
+	}
+	if x.IsZero() {
+		return &Decimal{s: -1, e: 0, d: nil} // -Infinity
+	}
+	if x.s < 0 {
 		return &Decimal{s: 0} // NaN
 	}
 
@@ -254,17 +247,13 @@ func (c *Context) Log(x, y *Decimal) *Decimal {
 		return &Decimal{s: 0} // NaN
 	}
 
-	one, _ := c.New(1)
-	if y.Eq(one) {
+	if y.e == 0 && len(y.d) == 1 && y.d[0] == 1 {
 		return &Decimal{s: 0} // NaN if base == 1
-	}
-
-	if x.IsZero() {
-		return &Decimal{s: -1, e: 0, d: nil} // -Infinity
 	}
 	if !x.IsFinite() {
 		return &Decimal{s: 1, e: 0, d: nil} // +Infinity
 	}
+	one, _ := c.New(1)
 	if x.Eq(one) {
 		return &Decimal{s: 1, e: 0, d: []int32{0}} // log(1) = 0
 	}
@@ -277,6 +266,10 @@ func (c *Context) Log(x, y *Decimal) *Decimal {
 	lnX := evalCtx.Ln(x)
 
 	ten, _ := evalCtx.New(10)
+	if y.Eq(ten) && len(x.d) == 1 && x.d[0] == 1 {
+		kDec, _ := c.New(x.e)
+		return c.finalise(kDec, c.Precision, c.Rounding, false)
+	}
 	var lnY *Decimal
 	if y.Eq(ten) {
 		lnY = evalCtx.getLn10(wpr + 10)
@@ -284,9 +277,26 @@ func (c *Context) Log(x, y *Decimal) *Decimal {
 		lnY = evalCtx.Ln(y)
 	}
 
-	res := evalCtx.Div(lnX, lnY)
-	res = evalCtx.finalise(res, c.Precision+15, RoundHalfUp, false)
-	return c.finalise(res, c.Precision, c.Rounding, false)
+	res := evalCtx.divide(lnX, lnY, wpr, RoundDown, false)
+
+	// Check if x is an exact power y^(num/den) for small integer ratio num/den
+	if resF, err := res.Float64(); err == nil && !math.IsNaN(resF) && !math.IsInf(resF, 0) {
+		for den := int64(1); den <= 40; den++ {
+			num := int64(math.Round(resF * float64(den)))
+			if num != 0 && mathAbs(num) <= 100 {
+				yPow := c.intPow(y, num, c.Precision+12)
+				xPow := c.intPow(x, den, c.Precision+12)
+				if yPow.Eq(xPow) {
+					numDec, _ := c.New(num)
+					denDec, _ := c.New(den)
+					fracDec := c.divide(numDec, denDec, c.Precision+20, RoundDown, false)
+					return c.finalise(fracDec, c.Precision, c.Rounding, false)
+				}
+			}
+		}
+	}
+
+	return c.finalise(res, c.Precision, c.Rounding, true)
 }
 
 // Log computes logarithm of x in base y using default context.

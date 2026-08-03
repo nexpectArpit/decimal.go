@@ -115,3 +115,63 @@ func convertBase(str string, baseIn, baseOut int) []int {
 
 	return arr
 }
+
+// Dp returns the number of decimal places (digits after decimal point).
+// Matches decimal.js dp() (lines 1640-1662).
+func (x *Decimal) Dp() int {
+	if x == nil || !x.IsFinite() {
+		return -1
+	}
+	if x.d == nil || len(x.d) == 0 {
+		return 0
+	}
+	str := digitsToString(x.d)
+	e := x.e
+	length := int64(len(str))
+	if e >= length-1 {
+		return 0
+	}
+	if e < 0 {
+		return int(-e - 1 + length)
+	}
+	return int(length - 1 - e)
+}
+
+// Sd returns the number of significant digits.
+// Matches decimal.js sd() (lines 2404-2430).
+func (x *Decimal) Sd(includeZeros ...bool) int {
+	if x == nil || !x.IsFinite() {
+		return -1
+	}
+	if x.d == nil || len(x.d) == 0 {
+		return 0
+	}
+	str := digitsToString(x.d)
+	length := len(str)
+	if len(includeZeros) > 0 && includeZeros[0] && x.e+1 > int64(length) {
+		return int(x.e + 1)
+	}
+	return length
+}
+
+// Clamp clamps x to range [min, max].
+// Matches decimal.js clamp() (lines 1420-1440).
+func (c *Context) Clamp(x, min, max *Decimal) *Decimal {
+	if x == nil || min == nil || max == nil || x.IsNaN() || min.IsNaN() || max.IsNaN() {
+		return &Decimal{s: 0}
+	}
+	if min.Gt(max) {
+		return &Decimal{s: 0}
+	}
+	if x.Lt(min) {
+		return c.finalise(new(Decimal).Set(min), c.Precision, c.Rounding, false)
+	}
+	if x.Gt(max) {
+		return c.finalise(new(Decimal).Set(max), c.Precision, c.Rounding, false)
+	}
+	return c.finalise(new(Decimal).Set(x), c.Precision, c.Rounding, false)
+}
+
+func (x *Decimal) Clamp(min, max *Decimal) *Decimal {
+	return globalContext.Clamp(x, min, max)
+}

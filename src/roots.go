@@ -75,11 +75,11 @@ func (c *Context) Sqrt(x *Decimal) *Decimal {
 	}
 
 	evalCtx := c.Clone()
-	evalCtx.Precision = c.Precision + 20
-	if evalCtx.Precision < 36 {
-		evalCtx.Precision = 36
+	evalCtx.Precision = c.Precision + 50
+	if evalCtx.Precision < 60 {
+		evalCtx.Precision = 60
 	}
-	sd := c.Precision + 8
+	sd := c.Precision + 30
 	half, _ := evalCtx.New(0.5)
 
 	r := initialSqrtEstimate(evalCtx, x)

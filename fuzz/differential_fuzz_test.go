@@ -1,6 +1,7 @@
 package fuzz
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -71,9 +72,123 @@ func TestDifferentialFuzz(t *testing.T) {
 				}
 			}
 		}
+		// 5. Test Sin
+		if math.Abs(valA) > 2.0 {
+			sinVal := ctx.Sin(dA)
+			sinFloat, err := sinVal.Float64()
+			expSin := math.Sin(valA)
+			if err == nil {
+				if math.Abs(sinFloat-expSin) > 1e-2 {
+					divergences++
+					t.Logf("[DIVERGENCE] Sin(%.6f) = %s, expected %.6f", valA, sinVal.String(), expSin)
+				}
+			}
+		}
+
+		// 6. Test Atan
+		atanVal := ctx.Atan(dA)
+		atanFloat, err := atanVal.Float64()
+		expAtan := math.Atan(valA)
+		if err == nil {
+			if math.Abs(atanFloat-expAtan) > 1e-2 {
+				divergences++
+				t.Logf("[DIVERGENCE] Atan(%.6f) = %s, expected %.6f", valA, atanVal.String(), expAtan)
+			}
+		}
+
+		// 7. Test Pow negative base with fractional exponent
+		if valA < 0 {
+			half, _ := ctx.New(0.5)
+			powVal := ctx.Pow(dA, half)
+			if !powVal.IsNaN() {
+				divergences++
+				t.Logf("[DIVERGENCE] Pow(%.6f, 0.5) = %s, expected NaN", valA, powVal.String())
+			}
+		}
 	}
 
-	t.Logf("Differential fuzzing completed: %d operations verified, %d divergences.", iterations*4, divergences)
+	// Explicit tests for known critical transcendental inputs from audit
+	knownCases := []struct {
+		op       string
+		fn       func() error
+	}{
+		{
+			op: "Sin(-70.438949)",
+			fn: func() error {
+				d, _ := ctx.New("-70.438949")
+				res := ctx.Sin(d)
+				f, err := res.Float64()
+				exp := math.Sin(-70.438949)
+				if err != nil || math.Abs(f-exp) > 1e-2 {
+					return fmt.Errorf("Sin(-70.438949) = %s, expected %.6f", res.String(), exp)
+				}
+				return nil
+			},
+		},
+		{
+			op: "Atan(2.0)",
+			fn: func() error {
+				d, _ := ctx.New("2.0")
+				res := ctx.Atan(d)
+				f, err := res.Float64()
+				exp := math.Atan(2.0)
+				if err != nil || math.Abs(f-exp) > 1e-2 {
+					return fmt.Errorf("Atan(2.0) = %s, expected %.6f", res.String(), exp)
+				}
+				return nil
+			},
+		},
+		{
+			op: "Atan(5.0)",
+			fn: func() error {
+				d, _ := ctx.New("5.0")
+				res := ctx.Atan(d)
+				f, err := res.Float64()
+				exp := math.Atan(5.0)
+				if err != nil || math.Abs(f-exp) > 1e-2 {
+					return fmt.Errorf("Atan(5.0) = %s, expected %.6f", res.String(), exp)
+				}
+				return nil
+			},
+		},
+		{
+			op: "Ln(1000.0)",
+			fn: func() error {
+				d, _ := ctx.New("1000.0")
+				res := ctx.Ln(d)
+				f, err := res.Float64()
+				exp := math.Log(1000.0)
+				if err != nil || math.Abs(f-exp) > 1e-2 {
+					return fmt.Errorf("Ln(1000.0) = %s, expected %.6f", res.String(), exp)
+				}
+				return nil
+			},
+		},
+		{
+			op: "Pow(-2.0, 0.5)",
+			fn: func() error {
+				d, _ := ctx.New("-2.0")
+				half, _ := ctx.New("0.5")
+				res := ctx.Pow(d, half)
+				if !res.IsNaN() {
+					return fmt.Errorf("Pow(-2.0, 0.5) = %s, expected NaN", res.String())
+				}
+				return nil
+			},
+		},
+	}
+
+	for _, kc := range knownCases {
+		if err := kc.fn(); err != nil {
+			divergences++
+			t.Logf("[CRITICAL DIVERGENCE] %s: %v", kc.op, err)
+		}
+	}
+
+	t.Logf("Differential fuzzing completed: %d operations verified, %d divergences.", iterations*7+len(knownCases), divergences)
+	if divergences > 0 {
+		t.Fatalf("Differential fuzzing failed with %d divergences", divergences)
+	}
 }
 
 // FuzzDecimalArithmetic runs Go native fuzzing target for random byte input parsing.

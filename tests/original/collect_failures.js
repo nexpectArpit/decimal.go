@@ -323,3 +323,22 @@ for (const rec of records) {
 
 fs.writeFileSync(csvPath, csvContent, 'utf8');
 console.log(`Successfully generated ${records.length} records in FAILURE_DATABASE.csv`);
+
+// Write FORENSIC_FAILURE_DATABASE.json with real actual outputs
+const jsonItems = records.map(r => ({
+  module: r.Module,
+  testNumber: r['Assertion number'],
+  expected: r['Expected output'],
+  actual: r['Actual output'],
+  input: r['Input(s)'],
+  stack: r['JS stack'],
+  cluster: r['Assigned cluster']
+}));
+
+const jsonStr = JSON.stringify(jsonItems, null, 2);
+fs.writeFileSync(path.join(__dirname, '../../FORENSIC_FAILURE_DATABASE.json'), jsonStr, 'utf8');
+const auditReportsDir = path.join(__dirname, '../../../audit-reports');
+if (fs.existsSync(auditReportsDir)) {
+  fs.writeFileSync(path.join(auditReportsDir, 'FORENSIC_FAILURE_DATABASE.json'), jsonStr, 'utf8');
+}
+console.log(`Successfully generated ${jsonItems.length} records in FORENSIC_FAILURE_DATABASE.json`);

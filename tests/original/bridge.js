@@ -410,15 +410,16 @@ Decimal.mod = Decimal.modulo = function(x, y) { return new Decimal(x).mod(y); };
 Decimal.mul = Decimal.times = function(x, y) { return new Decimal(x).times(y); };
 Decimal.pow = function(x, y) { return new Decimal(x).pow(y); };
 Decimal.random = function (dp) {
+  const Ctor = this || Decimal;
   if (dp !== undefined) {
     checkInt32(dp, 0, MAX_DIGITS);
-    const oldPrec = this.precision;
-    this.precision = dp;
-    const r = wrapJS(DecimalJS.random(dp), this);
-    this.precision = oldPrec;
+    const oldPrec = Ctor.precision;
+    Ctor.precision = dp;
+    const r = wrapJS(DecimalJS.random(dp), Ctor);
+    Ctor.precision = oldPrec;
     return r;
   }
-  return wrapJS(DecimalJS.random(), this);
+  return wrapJS(DecimalJS.random(), Ctor);
 };
 Decimal.round = function(x) { return new Decimal(x).round(); };
 Decimal.sign = function (x) {
@@ -632,12 +633,11 @@ Decimal.prototype.toJSON = Decimal.prototype.valueOf = function () {
 };
 
 // New delegated prototype methods
+// New delegated prototype methods
 Decimal.prototype.clamp = Decimal.prototype.clampedTo = function (min, max) {
   const minVal = min instanceof Decimal ? min.valueOf() : min;
   const maxVal = max instanceof Decimal ? max.valueOf() : max;
-  const jsThis = toJS(this);
-  const res = jsThis.clamp(minVal, maxVal);
-  return wrapJS(res, this.constructor);
+  return wrapRes(callGo('clamp', [this.valueOf(), minVal, maxVal], this.constructor));
 };
 
 Decimal.prototype.divToInt = Decimal.prototype.dividedToIntegerBy = function (y) {
@@ -646,11 +646,18 @@ Decimal.prototype.divToInt = Decimal.prototype.dividedToIntegerBy = function (y)
 };
 
 Decimal.prototype.dp = Decimal.prototype.decimalPlaces = function () {
-  return toJS(this).dp();
+  const res = callGo('dp', [this.valueOf()], this.constructor);
+  const val = parseInt(res.string || res.str, 10);
+  return val < 0 ? NaN : val;
 };
 
 Decimal.prototype.sd = Decimal.prototype.precision = function (z) {
-  return toJS(this).sd(z);
+  if (z !== undefined && z !== true && z !== false && z !== 1 && z !== 0) {
+    throw new Error('[decimal.js] DecimalError: Invalid argument: ' + z);
+  }
+  const res = callGo('sd', [this.valueOf(), z], this.constructor);
+  const val = parseInt(res.string || res.str, 10);
+  return val < 0 ? NaN : val;
 };
 
 Decimal.prototype.isNeg = Decimal.prototype.isNegative = function () {
@@ -662,13 +669,13 @@ Decimal.prototype.isPos = Decimal.prototype.isPositive = function () {
 };
 
 Decimal.prototype.isInt = Decimal.prototype.isInteger = function () {
-  return toJS(this).isInt();
+  const res = callGo('isInt', [this.valueOf()], this.constructor);
+  return (res.string || res.str) === 'true';
 };
 
 Decimal.prototype.toFixed = function (dp, rm) {
   if (dp !== undefined) checkInt32(dp, 0, MAX_DIGITS);
   if (rm !== undefined) checkInt32(rm, 0, 8);
-  if (dp === undefined) return toJS(this).toFixed();
   const oldRounding = this.constructor.rounding;
   if (rm !== undefined) this.constructor.rounding = rm;
   const res = callGo('toFixed', [this.valueOf(), dp], this.constructor);
@@ -699,38 +706,59 @@ Decimal.prototype.toPrecision = function (sd, rm) {
 };
 
 Decimal.prototype.toBinary = function (sd, rm) {
-  return toJS(this).toBinary(sd, rm);
+  const res = callGo('toBinary', [this.valueOf(), sd, rm], this.constructor);
+  return res.string || res.str;
 };
 
 Decimal.prototype.toHex = Decimal.prototype.toHexadecimal = function (sd, rm) {
-  return toJS(this).toHex(sd, rm);
+  const res = callGo('toHex', [this.valueOf(), sd, rm], this.constructor);
+  return res.string || res.str;
 };
 
 Decimal.prototype.toOctal = function (sd, rm) {
-  return toJS(this).toOctal(sd, rm);
+  const res = callGo('toOctal', [this.valueOf(), sd, rm], this.constructor);
+  return res.string || res.str;
 };
 
 Decimal.prototype.toDP = Decimal.prototype.toDecimalPlaces = function (dp, rm) {
-  return wrapJS(toJS(this).toDP(dp, rm), this.constructor);
+  if (dp === undefined) {
+    return this;
+  }
+  checkInt32(dp, 0, MAX_DIGITS);
+  if (rm !== undefined) checkInt32(rm, 0, 8);
+  const rmVal = rm !== undefined ? rm : this.constructor.rounding;
+  return wrapRes(callGo('toDP', [this.valueOf(), dp, rmVal], this.constructor));
 };
 
 Decimal.prototype.toSD = Decimal.prototype.toSignificantDigits = function (sd, rm) {
-  return wrapJS(toJS(this).toSD(sd, rm), this.constructor);
+  if (sd !== undefined) {
+    checkInt32(sd, 1, MAX_DIGITS);
+  }
+  if (rm !== undefined) {
+    checkInt32(rm, 0, 8);
+  }
+  const sdVal = sd !== undefined ? sd : this.constructor.precision;
+  const rmVal = rm !== undefined ? rm : this.constructor.rounding;
+  return wrapRes(callGo('toSD', [this.valueOf(), sdVal, rmVal], this.constructor));
 };
 
 Decimal.prototype.toFraction = function (maxD) {
-  const maxDVal = maxD instanceof Decimal ? maxD.valueOf() : maxD;
-  const res = toJS(this).toFraction(maxDVal);
-  return [wrapJS(res[0], this.constructor), wrapJS(res[1], this.constructor)];
+  const maxDVal = maxD !== undefined ? (maxD instanceof Decimal ? maxD.valueOf() : maxD) : undefined;
+  const res = callGo('toFraction', [this.valueOf(), maxDVal], this.constructor);
+  const str = res.string || res.str || '0/1';
+  const parts = str.split('/');
+  const Ctor = this.constructor;
+  return [new Ctor(parts[0]), new Ctor(parts[1] || '1')];
 };
 
 Decimal.prototype.toNearest = function (y, rm) {
   const yVal = y instanceof Decimal ? y.valueOf() : y;
-  return wrapJS(toJS(this).toNearest(yVal, rm), this.constructor);
+  const rmVal = rm !== undefined ? rm : this.constructor.rounding;
+  return wrapRes(callGo('toNearest', [this.valueOf(), yVal, rmVal], this.constructor));
 };
 
 Decimal.prototype.toNumber = function () {
-  return toJS(this).toNumber();
+  return Number(this.valueOf());
 };
 
 Decimal.prototype.logarithm = Decimal.prototype.log = function (base) {

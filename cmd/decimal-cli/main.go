@@ -249,7 +249,7 @@ func handleOp(ctx *decimal.Context, req Request) Response {
 		}
 		b, err := ctx.New(req.Args[1])
 		if err != nil {
-			return Response{Error: err.Error()}
+			b, _ = ctx.New("NaN")
 		}
 		return makeResp(ctx, ctx.Log(a, b))
 
@@ -319,11 +319,15 @@ func handleOp(ctx *decimal.Context, req Request) Response {
 		return makeResp(ctx, ctx.DivToInt(a, b))
 
 	case "toFixed":
-		if len(req.Args) < 2 {
+		if len(req.Args) < 1 {
 			return Response{Error: "missing operand"}
 		}
-		dp, _ := strconv.Atoi(fmt.Sprintf("%v", req.Args[1]))
-		return Response{String: ctx.ToFixed(a, dp)}
+		if len(req.Args) >= 2 && req.Args[1] != nil && fmt.Sprintf("%v", req.Args[1]) != "undefined" {
+			if dp, err := strconv.Atoi(fmt.Sprintf("%v", req.Args[1])); err == nil {
+				return Response{String: ctx.ToFixed(a, dp)}
+			}
+		}
+		return Response{String: ctx.ToFixed(a)}
 
 	case "toExponential":
 		if len(req.Args) < 2 {
@@ -347,6 +351,126 @@ func handleOp(ctx *decimal.Context, req Request) Response {
 
 	case "ceil":
 		return makeResp(ctx, ctx.Ceil(a))
+
+	case "dp":
+		return Response{String: fmt.Sprintf("%d", a.Dp())}
+
+	case "sd":
+		zs := false
+		if len(req.Args) >= 2 {
+			if b, ok := req.Args[1].(bool); ok {
+				zs = b
+			} else if fmt.Sprintf("%v", req.Args[1]) == "1" || fmt.Sprintf("%v", req.Args[1]) == "true" {
+				zs = true
+			}
+		}
+		return Response{String: fmt.Sprintf("%d", a.Sd(zs))}
+
+	case "isInt":
+		return Response{String: fmt.Sprintf("%t", a.IsInt())}
+
+	case "toBinary":
+		var sd *int
+		var rm *int
+		if len(req.Args) >= 2 && req.Args[1] != nil && fmt.Sprintf("%v", req.Args[1]) != "undefined" {
+			if val, err := strconv.Atoi(fmt.Sprintf("%v", req.Args[1])); err == nil {
+				sd = &val
+			}
+		}
+		if len(req.Args) >= 3 && req.Args[2] != nil && fmt.Sprintf("%v", req.Args[2]) != "undefined" {
+			if val, err := strconv.Atoi(fmt.Sprintf("%v", req.Args[2])); err == nil {
+				rm = &val
+			}
+		}
+		return Response{String: ctx.ToBinary(a, sd, rm)}
+
+	case "toHex", "toHexadecimal":
+		var sd *int
+		var rm *int
+		if len(req.Args) >= 2 && req.Args[1] != nil && fmt.Sprintf("%v", req.Args[1]) != "undefined" {
+			if val, err := strconv.Atoi(fmt.Sprintf("%v", req.Args[1])); err == nil {
+				sd = &val
+			}
+		}
+		if len(req.Args) >= 3 && req.Args[2] != nil && fmt.Sprintf("%v", req.Args[2]) != "undefined" {
+			if val, err := strconv.Atoi(fmt.Sprintf("%v", req.Args[2])); err == nil {
+				rm = &val
+			}
+		}
+		return Response{String: ctx.ToHex(a, sd, rm)}
+
+	case "toOctal":
+		var sd *int
+		var rm *int
+		if len(req.Args) >= 2 && req.Args[1] != nil && fmt.Sprintf("%v", req.Args[1]) != "undefined" {
+			if val, err := strconv.Atoi(fmt.Sprintf("%v", req.Args[1])); err == nil {
+				sd = &val
+			}
+		}
+		if len(req.Args) >= 3 && req.Args[2] != nil && fmt.Sprintf("%v", req.Args[2]) != "undefined" {
+			if val, err := strconv.Atoi(fmt.Sprintf("%v", req.Args[2])); err == nil {
+				rm = &val
+			}
+		}
+		return Response{String: ctx.ToOctal(a, sd, rm)}
+
+	case "toFraction":
+		var maxD *decimal.Decimal
+		if len(req.Args) >= 2 {
+			maxD, _ = ctx.New(req.Args[1])
+		}
+		frac := ctx.ToFraction(a, maxD)
+		return Response{String: fmt.Sprintf("%s/%s", frac[0], frac[1])}
+
+	case "toNearest":
+		if len(req.Args) < 2 {
+			return Response{Error: "missing operand"}
+		}
+		b, err := ctx.New(req.Args[1])
+		if err != nil {
+			return Response{Error: err.Error()}
+		}
+		rm := ctx.Rounding
+		if len(req.Args) >= 3 {
+			if rmInt, err := strconv.Atoi(fmt.Sprintf("%v", req.Args[2])); err == nil {
+				rm = decimal.RoundingMode(rmInt)
+			}
+		}
+		return makeResp(ctx, ctx.ToNearest(a, b, rm))
+
+	case "toDP", "toDecimalPlaces":
+		if len(req.Args) < 2 {
+			return Response{Error: "missing operand"}
+		}
+		dp, _ := strconv.Atoi(fmt.Sprintf("%v", req.Args[1]))
+		rm := ctx.Rounding
+		if len(req.Args) >= 3 {
+			if rmInt, err := strconv.Atoi(fmt.Sprintf("%v", req.Args[2])); err == nil {
+				rm = decimal.RoundingMode(rmInt)
+			}
+		}
+		return makeResp(ctx, ctx.ToDP(a, dp, rm))
+
+	case "toSD", "toSignificantDigits":
+		if len(req.Args) < 2 {
+			return Response{Error: "missing operand"}
+		}
+		sd, _ := strconv.Atoi(fmt.Sprintf("%v", req.Args[1]))
+		rm := ctx.Rounding
+		if len(req.Args) >= 3 {
+			if rmInt, err := strconv.Atoi(fmt.Sprintf("%v", req.Args[2])); err == nil {
+				rm = decimal.RoundingMode(rmInt)
+			}
+		}
+		return makeResp(ctx, ctx.ToSD(a, sd, rm))
+
+	case "clamp", "clampedTo":
+		if len(req.Args) < 3 {
+			return Response{Error: "missing operand"}
+		}
+		min, _ := ctx.New(req.Args[1])
+		max, _ := ctx.New(req.Args[2])
+		return makeResp(ctx, ctx.Clamp(a, min, max))
 
 	case "round":
 		return makeResp(ctx, ctx.Round(a))

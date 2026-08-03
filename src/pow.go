@@ -26,7 +26,7 @@ func (c *Context) intPow(x *Decimal, n int64, pr int) *Decimal {
 	}
 
 	evalCtx := c.Clone()
-	evalCtx.Precision = pr + 12
+	evalCtx.Precision = pr + 40
 
 	base := x
 
@@ -74,6 +74,12 @@ func (c *Context) Pow(x, y *Decimal) *Decimal {
 		return &Decimal{s: 1, e: 0, d: []int32{1}}
 	}
 
+	// pow(x, 1) = x
+	one, _ := c.New(1)
+	if y.Eq(one) {
+		return c.finalise(new(Decimal).Set(x), c.Precision, c.Rounding, false)
+	}
+
 	// pow(x, 0.5) = sqrt(x)
 	half, _ := c.New(0.5)
 	if y.Eq(half) {
@@ -110,38 +116,51 @@ func (c *Context) Pow(x, y *Decimal) *Decimal {
 		}
 	}
 
-	// If x is negative and y is not an integer, return NaN (decimal.js lines 2298-2302)
-	if x.IsNeg() && !y.IsInt() {
-		return &Decimal{s: 0}
+	if x.IsNeg() {
+		if !y.IsInt() {
+			return &Decimal{s: 0}
+		}
+		xAbs := &Decimal{s: 1, e: x.e, d: x.d}
+		res := c.Pow(xAbs, y)
+		if res == nil || res.IsNaN() {
+			return res
+		}
+		// Determine parity of y
+		var isOdd bool
+		if len(y.d) > 0 {
+			lastLimb := y.d[len(y.d)-1]
+			isOdd = lastLimb%2 != 0
+		}
+		if isOdd {
+			res.s = -1
+		} else {
+			res.s = 1
+		}
+		return res
 	}
 
-	// Check if y is small integer for fast binary exponentiation
-	if y.IsInt() && mathAbs(y.e) < 15 {
-		n := int64(0)
-		if len(y.d) > 0 {
-			n = int64(y.d[0])
-			if y.s < 0 {
-				n = -n
+	// Check if y is an integer or half-integer with exact square base
+	two, _ := c.New(2)
+	twoY := c.Mul(y, two)
+	if twoY.IsInt() {
+		if n, err := strconv.ParseInt(twoY.String(), 10, 64); err == nil {
+			if n >= -MaxSafeInteger && n <= MaxSafeInteger {
+				if y.IsInt() {
+					r := c.intPow(x, n/2, c.Precision)
+					return c.finalise(r, c.Precision, c.Rounding, false)
+				}
+				sqrtX := c.Sqrt(x)
+				if c.Mul(sqrtX, sqrtX).Eq(x) {
+					r := c.intPow(sqrtX, n, c.Precision)
+					return c.finalise(r, c.Precision, c.Rounding, false)
+				}
 			}
-		}
-		if n >= -MaxSafeInteger && n <= MaxSafeInteger {
-			r := c.intPow(x, n, c.Precision)
-			if y.s < 0 {
-				one, _ := c.New(1)
-				return c.Div(one, r)
-			}
-			return c.finalise(r, c.Precision, c.Rounding, false)
 		}
 	}
 
 	// x^y = exp(y * ln(x))
-	eStr := strconv.FormatInt(x.e, 10)
-	k := len(eStr)
-	if k > 12 {
-		k = 12
-	}
 	evalCtx := c.Clone()
-	evalCtx.Precision = c.Precision + k + 8
+	evalCtx.Precision = c.Precision + len(x.String()) + len(y.String()) + 100
 	lnX := evalCtx.Ln(x)
 	yLnX := evalCtx.Mul(y, lnX)
 	resExp := evalCtx.Exp(yLnX)

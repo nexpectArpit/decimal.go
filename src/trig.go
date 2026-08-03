@@ -414,10 +414,23 @@ func (c *Context) Atan(x *Decimal) *Decimal {
 		return c.finalise(res, c.Precision, c.Rounding, true)
 	}
 
+	// For |x| > 1: atan(x) = sign(x)*pi/2 - atan(1/|x|)
+	if x.Abs().Gt(one) {
+		pi := wprCtx.getPi(wpr + 4)
+		half, _ := wprCtx.New(0.5)
+		halfPi := wprCtx.Mul(pi, half)
+
+		invX := wprCtx.divide(one, x.Abs(), wpr, RoundDown, false)
+		atanInv := c.Atan(invX)
+		res := wprCtx.Sub(halfPi, atanInv)
+		res.s = x.s
+		return c.finalise(res, c.Precision, c.Rounding, true)
+	}
+
 	// Argument reduction: atan(x) = 2 * atan(x / (1 + sqrt(1 + x^2)))
-	k := wpr/LogBase + 2
-	if k > 28 {
-		k = 28
+	k := 8
+	if wprCtx.Precision > 50 {
+		k = 16
 	}
 
 	xWork := x
