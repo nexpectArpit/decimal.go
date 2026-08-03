@@ -84,16 +84,15 @@ func (c *Context) Sub(x, y *Decimal) *Decimal {
 			lenOther = len(xd)
 		}
 		limit := int64(math.Max(math.Ceil(float64(c.Precision)/float64(LogBase)), float64(lenOther))) + 2
+		// Limit the number of prepended zeros, truncating the smaller operand to its
+		// leading limb rather than dropping it entirely, so an astronomically smaller
+		// operand still contributes a tiny nonzero remainder that can trigger correct
+		// borrow/rounding behavior (matches decimal.js P.minus, lines 1338-1346).
 		if k > limit {
-			if xLTy {
-				negY := &Decimal{
-					s: -yVal.s,
-					e: yVal.e,
-					d: yVal.d,
-				}
-				return c.finalise(negY, c.Precision, c.Rounding, false)
+			k = limit
+			if len(*d) > 1 {
+				*d = (*d)[:1]
 			}
-			return c.finalise(xVal, c.Precision, c.Rounding, false)
 		}
 
 		zeros := make([]int32, k)

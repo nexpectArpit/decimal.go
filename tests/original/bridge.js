@@ -743,7 +743,14 @@ Decimal.prototype.toSD = Decimal.prototype.toSignificantDigits = function (sd, r
 };
 
 Decimal.prototype.toFraction = function (maxD) {
-  const maxDVal = maxD !== undefined ? (maxD instanceof Decimal ? maxD.valueOf() : maxD) : undefined;
+  let maxDVal;
+  if (maxD !== undefined && maxD !== null) {
+    const n = new this.constructor(maxD);
+    if (!n.isInt() || n.lt(1)) {
+      throw new Error('[decimal.js] DecimalError: Invalid argument: ' + maxD);
+    }
+    maxDVal = n.valueOf();
+  }
   const res = callGo('toFraction', [this.valueOf(), maxDVal], this.constructor);
   const str = res.string || res.str || '0/1';
   const parts = str.split('/');

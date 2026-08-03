@@ -37,15 +37,12 @@ func (c *Context) Add(x, y *Decimal) *Decimal {
 		return c.Sub(xVal, negY)
 	}
 
-	// If either is zero...
+	// If both are zero (same sign, since opposite signs were redirected to Sub above)...
+	// x + x retains the sign of x even when x is zero (IEEE 754-2008 section 6.3);
+	// the ROUND_FLOOR sign rule for an exact-zero sum only applies to opposite-signed
+	// operands, which is handled by the Sub() path above, not here.
 	if (len(xVal.d) == 0 || xVal.d[0] == 0) && (len(yVal.d) == 0 || yVal.d[0] == 0) {
-		resSign := int8(1)
-		if xVal.s < 0 && yVal.s < 0 {
-			resSign = -1
-		} else if c.Rounding == RoundFloor {
-			resSign = -1
-		}
-		return &Decimal{s: resSign, e: 0, d: []int32{0}}
+		return &Decimal{s: xVal.s, e: 0, d: []int32{0}}
 	}
 	if len(xVal.d) == 0 || xVal.d[0] == 0 {
 		res := &Decimal{s: yVal.s, e: yVal.e, d: append([]int32(nil), yVal.d...)}
@@ -67,22 +64,33 @@ func (c *Context) Add(x, y *Decimal) *Decimal {
 	e := eY
 	if k != 0 {
 		var d *[]int32
+		var lenOther int
 		if k < 0 {
-			lenOther := len(yd)
-			limit := int64(math.Max(math.Ceil(float64(c.Precision)/float64(LogBase)), float64(lenOther))) + 1
-			if -k > limit {
-				return c.finalise(yVal, c.Precision, c.Rounding, false)
-			}
+			lenOther = len(yd)
 			d = &xd
 			k = -k
 		} else {
-			lenOther := len(xd)
-			limit := int64(math.Max(math.Ceil(float64(c.Precision)/float64(LogBase)), float64(lenOther))) + 1
-			if k > limit {
-				return c.finalise(xVal, c.Precision, c.Rounding, false)
-			}
+			lenOther = len(xd)
 			d = &yd
 			e = eX
+		}
+
+		// Limit the number of zeros prepended to max(ceil(pr/LOG_BASE), lenOther) + 1,
+		// truncating the smaller operand to its leading limb rather than dropping it
+		// entirely, so an astronomically smaller operand still contributes a tiny
+		// nonzero remainder that can trigger correct borrow/rounding behavior
+		// (matches decimal.js P.plus, lines 1591-1603).
+		limit := int64(math.Ceil(float64(c.Precision) / float64(LogBase)))
+		if limit <= int64(lenOther) {
+			limit = int64(lenOther) + 1
+		} else {
+			limit++
+		}
+		if k > limit {
+			k = limit
+			if len(*d) > 1 {
+				*d = (*d)[:1]
+			}
 		}
 
 		// Prepend zeros to align exponents

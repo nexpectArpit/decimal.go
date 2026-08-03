@@ -621,7 +621,9 @@ func (x *Decimal) ToOctal(opts ...*int) string {
 }
 
 // ToFraction returns [numerator, denominator] string pair for x.
-// Matches decimal.js toFraction() (lines 2048-2120).
+// Matches decimal.js toFraction() (lines 2048-2120): when maxD is given and
+// smaller than the exact denominator, returns the best rational approximation
+// of x with a denominator not exceeding maxD (continued-fraction convergents).
 func (c *Context) ToFraction(x *Decimal, maxD *Decimal) []string {
 	if x == nil || !x.IsFinite() {
 		return []string{"NaN", "1"}
@@ -632,7 +634,7 @@ func (c *Context) ToFraction(x *Decimal, maxD *Decimal) []string {
 		}
 		return []string{"0", "1"}
 	}
-	numStr := c.String(x)
+	numStr := c.String(x.Abs())
 	denStr := "1"
 	if dotIdx := strings.IndexByte(numStr, '.'); dotIdx >= 0 {
 		dp := len(numStr) - dotIdx - 1
@@ -642,22 +644,95 @@ func (c *Context) ToFraction(x *Decimal, maxD *Decimal) []string {
 
 	numBig := new(big.Int)
 	denBig := new(big.Int)
-	if _, ok := numBig.SetString(numStr, 10); ok {
-		if _, ok := denBig.SetString(denStr, 10); ok && denBig.Sign() != 0 {
-			g := new(big.Int).GCD(nil, nil, numBig, denBig)
-			if g.Sign() != 0 {
-				numBig.Div(numBig, g)
-				denBig.Div(denBig, g)
-			}
-			if denBig.Sign() < 0 {
-				numBig.Neg(numBig)
-				denBig.Neg(denBig)
-			}
-			return []string{numBig.String(), denBig.String()}
+	if _, ok := numBig.SetString(numStr, 10); !ok {
+		return []string{c.String(x), "1"}
+	}
+	if _, ok := denBig.SetString(denStr, 10); !ok || denBig.Sign() == 0 {
+		return []string{c.String(x), "1"}
+	}
+
+	g := new(big.Int).GCD(nil, nil, numBig, denBig)
+	if g.Sign() != 0 {
+		numBig.Div(numBig, g)
+		denBig.Div(denBig, g)
+	}
+
+	var maxDBig *big.Int
+	if maxD != nil && maxD.IsFinite() && !maxD.IsZero() {
+		maxDStr := c.String(maxD.Abs().Trunc())
+		v := new(big.Int)
+		if _, ok := v.SetString(maxDStr, 10); ok && v.Sign() > 0 {
+			maxDBig = v
 		}
 	}
 
-	return []string{numStr, denStr}
+	resNum, resDen := numBig, denBig
+	if maxDBig != nil && maxDBig.Cmp(denBig) < 0 {
+		resNum, resDen = bestFractionApprox(numBig, denBig, maxDBig)
+	}
+
+	if x.s < 0 {
+		resNum = new(big.Int).Neg(resNum)
+	}
+	return []string{resNum.String(), resDen.String()}
+}
+
+// bestFractionApprox returns the closest rational approximation p/q of num/den
+// (both positive) such that q <= maxDen, via continued-fraction convergents.
+func bestFractionApprox(num, den, maxDen *big.Int) (*big.Int, *big.Int) {
+	n := new(big.Int).Set(num)
+	d := new(big.Int).Set(den)
+
+	d0 := big.NewInt(1)
+	d1 := big.NewInt(0)
+	n0 := big.NewInt(0)
+	n1 := big.NewInt(1)
+
+	for {
+		q := new(big.Int)
+		r := new(big.Int)
+		q.QuoRem(n, d, r)
+
+		d2 := new(big.Int).Add(d0, new(big.Int).Mul(q, d1))
+		if d2.Cmp(maxDen) > 0 {
+			break
+		}
+		n2 := new(big.Int).Add(n0, new(big.Int).Mul(q, n1))
+
+		d0, d1 = d1, d2
+		n0, n1 = n1, n2
+
+		if r.Sign() == 0 {
+			break
+		}
+		n, d = d, r
+	}
+
+	// Refine: extend the last accepted convergent as far toward maxDen as possible.
+	if d1.Sign() != 0 {
+		diff := new(big.Int).Sub(maxDen, d0)
+		q2 := new(big.Int).Quo(diff, d1)
+		if q2.Sign() > 0 {
+			n0 = new(big.Int).Add(n0, new(big.Int).Mul(q2, n1))
+			d0 = new(big.Int).Add(d0, new(big.Int).Mul(q2, d1))
+		}
+	}
+
+	if d1.Sign() == 0 {
+		return n0, d0
+	}
+
+	// Choose whichever of (n1,d1) or (n0,d0) is closer to num/den.
+	lhs := new(big.Int).Sub(new(big.Int).Mul(n1, den), new(big.Int).Mul(num, d1))
+	lhs.Abs(lhs)
+	lhs.Mul(lhs, d0)
+	rhs := new(big.Int).Sub(new(big.Int).Mul(n0, den), new(big.Int).Mul(num, d0))
+	rhs.Abs(rhs)
+	rhs.Mul(rhs, d1)
+	if lhs.Cmp(rhs) <= 0 {
+		return n1, d1
+	}
+	return n0, d0
 }
 func (x *Decimal) ToFraction(maxD *Decimal) []string {
 	return globalContext.ToFraction(x, maxD)
