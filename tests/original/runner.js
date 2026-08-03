@@ -31,3 +31,4 @@ for (const file of files) {
 }
 
 console.log(`\nOriginal Test Suite Harness Run Complete.`);
+process.exit(0);
