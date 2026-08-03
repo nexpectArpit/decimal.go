@@ -25,7 +25,7 @@ function ensureCliProc() {
 
 function readLineSync(fd) {
   const chunk = Buffer.alloc(65536);
-  for (;;) {
+  for (; ;) {
     const nlIdx = cliReadBuf.indexOf(0x0a);
     if (nlIdx !== -1) {
       const line = cliReadBuf.slice(0, nlIdx).toString('utf8');
@@ -81,8 +81,8 @@ function callGo(op, args, Ctor = Decimal) {
 
 process.on('exit', () => {
   if (cliProc && !cliProc.killed) {
-    try { cliProc.stdin.end(); } catch (e) {}
-    try { cliProc.kill(); } catch (e) {}
+    try { cliProc.stdin.end(); } catch (e) { }
+    try { cliProc.kill(); } catch (e) { }
   }
 });
 
@@ -347,25 +347,25 @@ Decimal.clone = function (configObj) {
   }
 
   // Attach static methods to Ctor
-  Ctor.abs = function(x) { return new Ctor(x).abs(); };
-  Ctor.acos = function(x) { return new Ctor(x).acos(); };
-  Ctor.acosh = function(x) { return new Ctor(x).acosh(); };
-  Ctor.add = Ctor.plus = function(x, y) { return new Ctor(x).add(y); };
-  Ctor.asin = function(x) { return new Ctor(x).asin(); };
-  Ctor.asinh = function(x) { return new Ctor(x).asinh(); };
-  Ctor.atan = function(x) { return new Ctor(x).atan(); };
-  Ctor.atan2 = function(y, x) { return new Ctor(y).atan2(x); };
-  Ctor.atanh = function(x) { return new Ctor(x).atanh(); };
-  Ctor.cbrt = function(x) { return new Ctor(x).cbrt(); };
-  Ctor.ceil = function(x) { return new Ctor(x).ceil(); };
-  Ctor.clamp = Ctor.clampedTo = function(x, min, max) { return new Ctor(x).clamp(min, max); };
+  Ctor.abs = function (x) { return new Ctor(x).abs(); };
+  Ctor.acos = function (x) { return new Ctor(x).acos(); };
+  Ctor.acosh = function (x) { return new Ctor(x).acosh(); };
+  Ctor.add = Ctor.plus = function (x, y) { return new Ctor(x).add(y); };
+  Ctor.asin = function (x) { return new Ctor(x).asin(); };
+  Ctor.asinh = function (x) { return new Ctor(x).asinh(); };
+  Ctor.atan = function (x) { return new Ctor(x).atan(); };
+  Ctor.atan2 = function (y, x) { return new Ctor(y).atan2(x); };
+  Ctor.atanh = function (x) { return new Ctor(x).atanh(); };
+  Ctor.cbrt = function (x) { return new Ctor(x).cbrt(); };
+  Ctor.ceil = function (x) { return new Ctor(x).ceil(); };
+  Ctor.clamp = Ctor.clampedTo = function (x, min, max) { return new Ctor(x).clamp(min, max); };
   Ctor.clone = Decimal.clone;
-  Ctor.cos = function(x) { return new Ctor(x).cos(); };
-  Ctor.cosh = function(x) { return new Ctor(x).cosh(); };
-  Ctor.div = Ctor.dividedBy = function(x, y) { return new Ctor(x).div(y); };
-  Ctor.exp = function(x) { return new Ctor(x).exp(); };
-  Ctor.floor = function(x) { return new Ctor(x).floor(); };
-  Ctor.hypot = function(...args) {
+  Ctor.cos = function (x) { return new Ctor(x).cos(); };
+  Ctor.cosh = function (x) { return new Ctor(x).cosh(); };
+  Ctor.div = Ctor.dividedBy = function (x, y) { return new Ctor(x).div(y); };
+  Ctor.exp = function (x) { return new Ctor(x).exp(); };
+  Ctor.floor = function (x) { return new Ctor(x).floor(); };
+  Ctor.hypot = function (...args) {
     let pr = Ctor.precision;
     Ctor.precision = pr + 12;
     let t = new Ctor(0);
@@ -384,52 +384,52 @@ Decimal.clone = function (configObj) {
     Ctor.precision = pr;
     return t.sqrt();
   };
-  Ctor.ln = function(x) { return new Ctor(x).ln(); };
-  Ctor.log = function(x, y) { return new Ctor(x).log(y); };
-  Ctor.log10 = function(x) { return new Ctor(x).log(10); };
-  Ctor.log2 = function(x) { return new Ctor(x).log(2); };
-  Ctor.mod = Ctor.modulo = function(x, y) { return new Ctor(x).mod(y); };
-  Ctor.mul = Ctor.times = function(x, y) { return new Ctor(x).mul(y); };
-  Ctor.pow = function(x, y) { return new Ctor(x).pow(y); };
-  Ctor.round = function(x) { return new Ctor(x).round(); };
-  Ctor.sin = function(x) { return new Ctor(x).sin(); };
-  Ctor.sinh = function(x) { return new Ctor(x).sinh(); };
-  Ctor.sqrt = function(x) { return new Ctor(x).sqrt(); };
-  Ctor.sub = Ctor.minus = function(x, y) { return new Ctor(x).minus(y); };
-  Ctor.tan = function(x) { return new Ctor(x).tan(); };
-  Ctor.tanh = function(x) { return new Ctor(x).tanh(); };
-  Ctor.trunc = function(x) { return new Ctor(x).trunc(); };
+  Ctor.ln = function (x) { return new Ctor(x).ln(); };
+  Ctor.log = function (x, y) { return new Ctor(x).log(y); };
+  Ctor.log10 = function (x) { return new Ctor(x).log(10); };
+  Ctor.log2 = function (x) { return new Ctor(x).log(2); };
+  Ctor.mod = Ctor.modulo = function (x, y) { return new Ctor(x).mod(y); };
+  Ctor.mul = Ctor.times = function (x, y) { return new Ctor(x).mul(y); };
+  Ctor.pow = function (x, y) { return new Ctor(x).pow(y); };
+  Ctor.round = function (x) { return new Ctor(x).round(); };
+  Ctor.sin = function (x) { return new Ctor(x).sin(); };
+  Ctor.sinh = function (x) { return new Ctor(x).sinh(); };
+  Ctor.sqrt = function (x) { return new Ctor(x).sqrt(); };
+  Ctor.sub = Ctor.minus = function (x, y) { return new Ctor(x).minus(y); };
+  Ctor.tan = function (x) { return new Ctor(x).tan(); };
+  Ctor.tanh = function (x) { return new Ctor(x).tanh(); };
+  Ctor.trunc = function (x) { return new Ctor(x).trunc(); };
 
   return Ctor;
 };
 
 // Static methods
-Decimal.abs = function(x) { return new Decimal(x).abs(); };
-Decimal.acos = function(x) { return new Decimal(x).acos(); };
-Decimal.acosh = function(x) { return new Decimal(x).acosh(); };
-Decimal.add = Decimal.plus = function(x, y) { return new Decimal(x).add(y); };
-Decimal.asin = function(x) { return new Decimal(x).asin(); };
-Decimal.asinh = function(x) { return new Decimal(x).asinh(); };
-Decimal.atan = function(x) { return new Decimal(x).atan(); };
-Decimal.atan2 = function(y, x) { return new Decimal(y).atan2(x); };
-Decimal.atanh = function(x) { return new Decimal(x).atanh(); };
-Decimal.cbrt = function(x) { return new Decimal(x).cbrt(); };
-Decimal.ceil = function(x) { return new Decimal(x).ceil(); };
-Decimal.clamp = Decimal.clampedTo = function(x, min, max) { return new Decimal(x).clamp(min, max); };
-Decimal.cos = function(x) { return new Decimal(x).cos(); };
-Decimal.cosh = function(x) { return new Decimal(x).cosh(); };
-Decimal.div = Decimal.dividedBy = function(x, y) { return new Decimal(x).div(y); };
-Decimal.exp = function(x) { return new Decimal(x).exp(); };
-Decimal.floor = function(x) { return new Decimal(x).floor(); };
+Decimal.abs = function (x) { return new Decimal(x).abs(); };
+Decimal.acos = function (x) { return new Decimal(x).acos(); };
+Decimal.acosh = function (x) { return new Decimal(x).acosh(); };
+Decimal.add = Decimal.plus = function (x, y) { return new Decimal(x).add(y); };
+Decimal.asin = function (x) { return new Decimal(x).asin(); };
+Decimal.asinh = function (x) { return new Decimal(x).asinh(); };
+Decimal.atan = function (x) { return new Decimal(x).atan(); };
+Decimal.atan2 = function (y, x) { return new Decimal(y).atan2(x); };
+Decimal.atanh = function (x) { return new Decimal(x).atanh(); };
+Decimal.cbrt = function (x) { return new Decimal(x).cbrt(); };
+Decimal.ceil = function (x) { return new Decimal(x).ceil(); };
+Decimal.clamp = Decimal.clampedTo = function (x, min, max) { return new Decimal(x).clamp(min, max); };
+Decimal.cos = function (x) { return new Decimal(x).cos(); };
+Decimal.cosh = function (x) { return new Decimal(x).cosh(); };
+Decimal.div = Decimal.dividedBy = function (x, y) { return new Decimal(x).div(y); };
+Decimal.exp = function (x) { return new Decimal(x).exp(); };
+Decimal.floor = function (x) { return new Decimal(x).floor(); };
 Decimal.hypot = function (...args) {
   const strArgs = args.map(arg => (arg instanceof Decimal ? arg.valueOf() : arg));
   return wrapRes(callGo('hypot', strArgs, this));
 };
-Decimal.ln = function(x) { return new Decimal(x).ln(); };
-Decimal.log = function(x, y) { return new Decimal(x).log(y); };
-Decimal.log10 = function(x) { return new Decimal(x).log(10); };
-Decimal.log2 = function(x) { return new Decimal(x).log(2); };
-Decimal.max = function(...args) {
+Decimal.ln = function (x) { return new Decimal(x).ln(); };
+Decimal.log = function (x, y) { return new Decimal(x).log(y); };
+Decimal.log10 = function (x) { return new Decimal(x).log(10); };
+Decimal.log2 = function (x) { return new Decimal(x).log(2); };
+Decimal.max = function (...args) {
   if (args.length === 0) return new Decimal(NaN);
   let max = new Decimal(args[0]);
   for (let i = 1; i < args.length; i++) {
@@ -439,7 +439,7 @@ Decimal.max = function(...args) {
   }
   return max;
 };
-Decimal.min = function(...args) {
+Decimal.min = function (...args) {
   if (args.length === 0) return new Decimal(NaN);
   let min = new Decimal(args[0]);
   for (let i = 1; i < args.length; i++) {
@@ -449,9 +449,9 @@ Decimal.min = function(...args) {
   }
   return min;
 };
-Decimal.mod = Decimal.modulo = function(x, y) { return new Decimal(x).mod(y); };
-Decimal.mul = Decimal.times = function(x, y) { return new Decimal(x).times(y); };
-Decimal.pow = function(x, y) { return new Decimal(x).pow(y); };
+Decimal.mod = Decimal.modulo = function (x, y) { return new Decimal(x).mod(y); };
+Decimal.mul = Decimal.times = function (x, y) { return new Decimal(x).times(y); };
+Decimal.pow = function (x, y) { return new Decimal(x).pow(y); };
 Decimal.random = function (dp) {
   const Ctor = this || Decimal;
   if (dp !== undefined) {
@@ -459,17 +459,17 @@ Decimal.random = function (dp) {
   }
   return wrapRes(callGo('random', [dp !== undefined ? dp : Ctor.precision], Ctor));
 };
-Decimal.round = function(x) { return new Decimal(x).round(); };
+Decimal.round = function (x) { return new Decimal(x).round(); };
 Decimal.sign = function (x) {
   let d = new Decimal(x);
   if (d.isNaN()) return NaN;
   if (d.isZero()) return d.s < 0 ? -0 : 0;
   return d.s;
 };
-Decimal.sin = function(x) { return new Decimal(x).sin(); };
-Decimal.sinh = function(x) { return new Decimal(x).sinh(); };
-Decimal.sqrt = function(x) { return new Decimal(x).sqrt(); };
-Decimal.sub = Decimal.minus = function(x, y) { return new Decimal(x).minus(y); };
+Decimal.sin = function (x) { return new Decimal(x).sin(); };
+Decimal.sinh = function (x) { return new Decimal(x).sinh(); };
+Decimal.sqrt = function (x) { return new Decimal(x).sqrt(); };
+Decimal.sub = Decimal.minus = function (x, y) { return new Decimal(x).minus(y); };
 Decimal.sum = function (...args) {
   if (args.length === 0) return new Decimal(NaN);
   let total = new Decimal(0);
@@ -478,9 +478,9 @@ Decimal.sum = function (...args) {
   }
   return total;
 };
-Decimal.tan = function(x) { return new Decimal(x).tan(); };
-Decimal.tanh = function(x) { return new Decimal(x).tanh(); };
-Decimal.trunc = function(x) { return new Decimal(x).trunc(); };
+Decimal.tan = function (x) { return new Decimal(x).tan(); };
+Decimal.tanh = function (x) { return new Decimal(x).tanh(); };
+Decimal.trunc = function (x) { return new Decimal(x).trunc(); };
 Decimal.isDecimal = Decimal.isDecimalInstance = function (obj) {
   return obj instanceof Decimal || (obj && typeof obj === 'object' && obj.d !== undefined && obj.s !== undefined && obj.e !== undefined);
 };

@@ -7,7 +7,6 @@ T = (function () {
     var time;
     write(' Testing ' + name + '...');
     passed = testNumber = 0;
-    global.total = 0;
     time = new Date();
     tests();
     time = new Date() - time;
