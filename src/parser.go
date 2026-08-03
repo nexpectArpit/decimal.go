@@ -46,9 +46,17 @@ func (c *Context) parseDecimal(x *Decimal, str string) *Decimal {
 			e = int64(eIdx)
 		}
 		expVal, err := strconv.ParseInt(str[eIdx+1:], 10, 64)
-		if err == nil {
-			e += expVal
+		if err != nil {
+			if len(str) > eIdx+1 && str[eIdx+1] == '-' {
+				x.e = 0
+				x.d = []int32{0}
+				return x
+			}
+			x.e = 0
+			x.d = nil
+			return x
 		}
+		e += expVal
 		str = str[:eIdx]
 	} else if e < 0 {
 		// Integer string

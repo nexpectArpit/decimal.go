@@ -20,6 +20,7 @@ func (c *Context) intPow(x *Decimal, n int64, pr int) *Decimal {
 	r := one
 	k := int(math.Ceil(float64(pr)/float64(LogBase))) + 4
 
+	isNeg := n < 0
 	if n < 0 {
 		n = -n
 	}
@@ -54,6 +55,10 @@ func (c *Context) intPow(x *Decimal, n int64, pr int) *Decimal {
 		base.d, _ = truncateDigits(base.d, k)
 	}
 
+	if isNeg {
+		return c.Div(one, r)
+	}
+
 	return r
 }
 
@@ -67,6 +72,12 @@ func (c *Context) Pow(x, y *Decimal) *Decimal {
 	// pow(x, ±0) = 1
 	if y.IsZero() {
 		return &Decimal{s: 1, e: 0, d: []int32{1}}
+	}
+
+	// pow(x, 0.5) = sqrt(x)
+	half, _ := c.New(0.5)
+	if y.Eq(half) {
+		return c.Sqrt(x)
 	}
 
 	// Non-finite or zero operands: follow math.Pow(float64(x), float64(y))

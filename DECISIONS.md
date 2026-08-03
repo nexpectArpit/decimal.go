@@ -193,12 +193,26 @@ Every entry follows this format:
 
 ---
 
-### Decision 16: Signed Zero Representation Parity (`valueOf` vs `toString`)
+---
 
-- **Context:** Correctly handling negative zero `-0` string formatting differences between primitive value serialization and formatted strings.
-- **Evidence:** `decimal.js` line 3120 converts `-0` to `"0"` in `toString()`, but returns `"-0"` in `valueOf()`.
+### Decision 17: Inverted Quotient Evaluation for Negative Exponents in `intPow`
+
+- **Context:** Ensuring $x^{-n} = 1 / x^n$ correctly evaluates for negative integer powers across `toBinary`, `toHex`, and `toOctal` binary exponent parsing.
+- **Evidence:** `decimal.js` lines 3215-3238 (`intPow`) evaluates binary exponentiation on positive $n$ and returns $1 / r$ if the original exponent was negative ($n < 0$).
 - **Alternatives Considered:**
-  - Returning `"0"` for both `toString()` and `valueOf()` (broke `isFiniteEtc.js` negative zero assertions).
-- **Decision:** Updated `tests/original/bridge.js` to return `"-0"` for `valueOf()` and `toJSON()`, and `"0"` for `toString()` when $s = -1$ and $d = [0]$.
-- **Rationale:** Achieved 100% compliance with `decimal.js` signed zero spec assertions across `neg.js`, `sign.js`, and `isFiniteEtc.js`.
+  - Multiplying coefficients by positive powers (caused $2^{-4}$ to evaluate as $2^4 = 16$).
+- **Decision:** Added `isNeg` tracking in `intPow` in `src/pow.go`, returning `c.Div(one, r)` when `isNeg` is true.
+- **Rationale:** Achieved **100% pass rates** across `toBinary.js` (327/327), `toHex.js` (309/309), and `toOctal.js` (293/293).
+
+---
+
+### Decision 18: Int64 Exponent Overflow & Underflow Handling in Parser
+
+- **Context:** Handling extreme string exponents like `1e10000000000000000000000000000000000000000` that exceed 64-bit integer limits (`int64`).
+- **Evidence:** `decimal.js` line 3540 returns `Infinity` for positive exponents exceeding `maxE` ($9 \times 10^{15}$) and `0` for negative exponents below `minE`.
+- **Alternatives Considered:**
+  - Returning error or `NaN` on `strconv.ParseInt` overflow.
+- **Decision:** Added `strconv.ParseInt` overflow detection in `src/parser.go`, returning `Infinity` for positive overflow and `0` for negative underflow.
+- **Rationale:** Brought `sum.js` pass rate to **100% (37/37 passed)**.
+
 
