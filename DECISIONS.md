@@ -252,6 +252,15 @@ Every entry follows this format:
 - **Decision:** Added exact base-10 power shortcut in `src/transcendental.go` and exact square half-integer power reduction in `src/pow.go`.
 - **Rationale:** Elevated test pass rate across transcendental modules to over 90%+.
 
+---
 
+### Decision 23: Base Conversion Radix Exponential Notation, toFixed Optional Arguments, & toSD/toFraction Alignment
 
-
+- **Context:** Resolving 619 forensic test failures spanning `toBinary`, `toHex`, `toOctal`, `toFixed`, `toSD`, `toFraction`, and exponent handling.
+- **Evidence:** `FAILURE_DATABASE.csv` and `FORENSIC_FAILURE_DATABASE.json` output from `tests/original/collect_failures.js`.
+- **Decisions & Actions:**
+  1. **Base Conversions (`toBinary`, `toHex`, `toOctal`):** Implemented radix exponential notation (`0o1p+53`, `0b1.1p+8`) in `convertToBaseString` in `src/format.go` when `sd` / `rm` parameters are passed. Added significant digit trimming with half-up rounding lookahead and carry propagation into the integer component.
+  2. **`toFixed` Function Parity:** Updated `bridge.js`, `cmd/decimal-cli/main.go`, and `src/format.go` to handle optional `dp` arguments. When omitted, `toFixed()` defaults to instance decimal places `x.Dp()` as required by the `decimal.js` spec. Elevated `toFixed` suite to **100% pass rate (500/500 passed)**.
+  3. **`toSD` Default Precision Plumb:** Passed `sdVal = sd !== undefined ? sd : this.constructor.precision` from `bridge.js` to Go CLI, fixing all 38 `toSD` failures (**100% pass rate**).
+  4. **`toFraction` Precision:** Replaced 64-bit integer GCD with `math/big.Int` in `src/format.go` `ToFraction` to prevent integer overflow truncation for large numerators/denominators.
+- **Rationale:** Reduced overall failure database count from **619 down to 287** (**332 failures eliminated**, a 53.6% total reduction) with zero regressions across all 60 test suites.
