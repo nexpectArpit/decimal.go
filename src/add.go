@@ -38,19 +38,20 @@ func (c *Context) Add(x, y *Decimal) *Decimal {
 	}
 
 	// If either is zero...
-	if len(xVal.d) > 0 && xVal.d[0] == 0 {
-		if len(yVal.d) > 0 && yVal.d[0] == 0 {
-			resSign := int8(1)
-			if c.Rounding == RoundFloor {
-				resSign = -1
-			}
-			res := &Decimal{s: resSign, e: yVal.e, d: append([]int32(nil), yVal.d...)}
-			return c.finalise(res, c.Precision, c.Rounding, false)
+	if (len(xVal.d) == 0 || xVal.d[0] == 0) && (len(yVal.d) == 0 || yVal.d[0] == 0) {
+		resSign := int8(1)
+		if xVal.s < 0 && yVal.s < 0 {
+			resSign = -1
+		} else if c.Rounding == RoundFloor {
+			resSign = -1
 		}
+		return &Decimal{s: resSign, e: 0, d: []int32{0}}
+	}
+	if len(xVal.d) == 0 || xVal.d[0] == 0 {
 		res := &Decimal{s: yVal.s, e: yVal.e, d: append([]int32(nil), yVal.d...)}
 		return c.finalise(res, c.Precision, c.Rounding, false)
 	}
-	if len(yVal.d) > 0 && yVal.d[0] == 0 {
+	if len(yVal.d) == 0 || yVal.d[0] == 0 {
 		res := &Decimal{s: xVal.s, e: xVal.e, d: append([]int32(nil), xVal.d...)}
 		return c.finalise(res, c.Precision, c.Rounding, false)
 	}

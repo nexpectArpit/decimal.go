@@ -172,9 +172,22 @@ func (c *Context) finalise(x *Decimal, sd int, rm RoundingMode, isTruncated bool
 		}
 	}
 
-	// Remove trailing zero limbs
-	for last := len(x.d) - 1; last >= 0 && x.d[last] == 0; last-- {
-		x.d = x.d[:last]
+	// Remove trailing zero limbs only if all limbs are zero
+	if len(x.d) > 0 {
+		allZero := true
+		for _, v := range x.d {
+			if v != 0 {
+				allZero = false
+				break
+			}
+		}
+		if allZero {
+			x.d = []int32{0}
+		} else {
+			for len(x.d) > 1 && x.d[len(x.d)-1] == 0 {
+				x.d = x.d[:len(x.d)-1]
+			}
+		}
 	}
 
 checkBounds:
